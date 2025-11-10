@@ -1,0 +1,18 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.swp
+*.swo
+
+# Node dependencies geradas localmente
+frappe/node_modules
+frappe/frappe/public/node_modules
+erpnext/node_modules
+apps/**/node_modules
+
+# Build outputs e caches
+sites/assets
+sites/*/private
+sites/*/backups
+
