@@ -2,20 +2,10 @@ x-app-volumes: &app_volumes
   - ../../../sites/common_site_config.json:/workspace/sites/common_site_config.json
   - ../../../sites/assets:/workspace/sites/assets
   - ../../../sites/tenant1.local:/workspace/sites/tenant1.local
-  - type: bind
-    source: ../../../frappe
-    target: /workspace/frappe
-  - type: bind
-    source: ../../../erpnext
-    target: /workspace/erpnext
-  - type: bind
-    source: ../../../apps/innexar_core
-    target: /workspace/innexar_core
 
 x-app-environment: &app_environment
   SITE_NAME: tenant1.local
   FRAPPE_ENV: production
-  PYTHONPATH: /workspace/innexar_core:/workspace/erpnext:/workspace/frappe:/workspace
   FRAPPE_REDIS_QUEUE: redis://redis-queue:6379/0
   FRAPPE_REDIS_CACHE: redis://redis-cache:6379/1
 

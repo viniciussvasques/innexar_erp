@@ -35,6 +35,9 @@ innexar/sites/**
 **/dist/**
 **/build/**
 
+# Virtualenv local
+env/
+
 ### Docker
 **/.docker/
 **/.cache/
