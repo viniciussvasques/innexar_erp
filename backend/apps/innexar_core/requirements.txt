@@ -1,0 +1,6 @@
+# frappe is already installed by frappe-bench, don't re-install from PyPI
+# plaid-python removed to avoid conflicts with erpnext (it has its own plaid integration)
+stripe>=7.0.0
+openai>=1.3.0
+resend>=0.7.0
+boto3>=1.29.0

@@ -1,0 +1,357 @@
+# Innexar ERP - Portuguese (Brazil) Translation
+# Copyright (C) 2025 Innexar
+# This file is distributed under the same license as Innexar ERP.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Innexar ERP 1.0\n"
+"Report-Msgid-Bugs-To: dev@innexar.app\n"
+"POT-Creation-Date: 2025-11-13 14:31-0500\n"
+"PO-Revision-Date: 2025-11-13 14:35-0500\n"
+"Last-Translator: Innexar Team <dev@innexar.app>\n"
+"Language-Team: Portuguese (Brazil) <pt-br@innexar.app>\n"
+"Language: pt-BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+# Language names
+#: config/settings.py:146
+msgid "English"
+msgstr "Inglês"
+
+#: config/settings.py:147
+msgid "Português (Brasil)"
+msgstr "Português (Brasil)"
+
+#: config/settings.py:148
+msgid "Español"
+msgstr "Espanhol"
+
+# Common terms
+msgid "Dashboard"
+msgstr "Painel de Controle"
+
+msgid "CRM"
+msgstr "CRM"
+
+msgid "Finance"
+msgstr "Financeiro"
+
+msgid "Invoicing"
+msgstr "Faturamento"
+
+msgid "Inventory"
+msgstr "Estoque"
+
+msgid "Projects"
+msgstr "Projetos"
+
+msgid "Support"
+msgstr "Atendimento"
+
+msgid "Settings"
+msgstr "Configurações"
+
+msgid "Integrations"
+msgstr "Integrações"
+
+# CRM Module
+msgid "Leads"
+msgstr "Leads"
+
+msgid "Contacts"
+msgstr "Contatos"
+
+msgid "Deals"
+msgstr "Negociações"
+
+msgid "Activities"
+msgstr "Atividades"
+
+msgid "Lead"
+msgstr "Lead"
+
+msgid "Contact"
+msgstr "Contato"
+
+msgid "Deal"
+msgstr "Negociação"
+
+msgid "Activity"
+msgstr "Atividade"
+
+msgid "Company"
+msgstr "Empresa"
+
+msgid "Position"
+msgstr "Cargo"
+
+msgid "Phone"
+msgstr "Telefone"
+
+msgid "Email"
+msgstr "E-mail"
+
+msgid "Source"
+msgstr "Origem"
+
+msgid "Status"
+msgstr "Status"
+
+msgid "Score"
+msgstr "Pontuação"
+
+msgid "Notes"
+msgstr "Observações"
+
+# Finance Module
+msgid "Accounts"
+msgstr "Contas"
+
+msgid "Categories"
+msgstr "Categorias"
+
+msgid "Transactions"
+msgstr "Transações"
+
+msgid "Cash Flow"
+msgstr "Fluxo de Caixa"
+
+msgid "Bank Accounts"
+msgstr "Contas Bancárias"
+
+msgid "Reconciliation"
+msgstr "Conciliação"
+
+msgid "Account"
+msgstr "Conta"
+
+msgid "Category"
+msgstr "Categoria"
+
+msgid "Transaction"
+msgstr "Transação"
+
+msgid "Income"
+msgstr "Receita"
+
+msgid "Expense"
+msgstr "Despesa"
+
+msgid "Balance"
+msgstr "Saldo"
+
+msgid "Amount"
+msgstr "Valor"
+
+msgid "Date"
+msgstr "Data"
+
+msgid "Description"
+msgstr "Descrição"
+
+# Invoicing Module
+msgid "Invoices"
+msgstr "Notas Fiscais"
+
+msgid "Invoice"
+msgstr "Nota Fiscal"
+
+msgid "Boleto"
+msgstr "Boleto"
+
+msgid "PIX"
+msgstr "PIX"
+
+msgid "Credit Card"
+msgstr "Cartão de Crédito"
+
+msgid "Subscription"
+msgstr "Assinatura"
+
+msgid "Issued"
+msgstr "Emitida"
+
+msgid "Paid"
+msgstr "Pago"
+
+msgid "Overdue"
+msgstr "Vencida"
+
+msgid "Canceled"
+msgstr "Cancelada"
+
+msgid "Customer"
+msgstr "Cliente"
+
+msgid "Due Date"
+msgstr "Vencimento"
+
+msgid "Total"
+msgstr "Total"
+
+# Authentication
+msgid "Login"
+msgstr "Entrar"
+
+msgid "Logout"
+msgstr "Sair"
+
+msgid "Register"
+msgstr "Registrar"
+
+msgid "Password"
+msgstr "Senha"
+
+msgid "Forgot Password"
+msgstr "Esqueci a Senha"
+
+msgid "Reset Password"
+msgstr "Redefinir Senha"
+
+msgid "Confirm Password"
+msgstr "Confirmar Senha"
+
+msgid "Name"
+msgstr "Nome"
+
+msgid "Remember Me"
+msgstr "Lembrar de mim"
+
+# Actions
+msgid "Save"
+msgstr "Salvar"
+
+msgid "Cancel"
+msgstr "Cancelar"
+
+msgid "Delete"
+msgstr "Excluir"
+
+msgid "Edit"
+msgstr "Editar"
+
+msgid "Create"
+msgstr "Criar"
+
+msgid "Update"
+msgstr "Atualizar"
+
+msgid "Search"
+msgstr "Pesquisar"
+
+msgid "Filter"
+msgstr "Filtrar"
+
+msgid "Export"
+msgstr "Exportar"
+
+msgid "Import"
+msgstr "Importar"
+
+msgid "Print"
+msgstr "Imprimir"
+
+msgid "Download"
+msgstr "Baixar"
+
+msgid "Upload"
+msgstr "Enviar"
+
+msgid "View"
+msgstr "Visualizar"
+
+msgid "Close"
+msgstr "Fechar"
+
+msgid "Submit"
+msgstr "Enviar"
+
+# Messages
+msgid "Success"
+msgstr "Sucesso"
+
+msgid "Error"
+msgstr "Erro"
+
+msgid "Warning"
+msgstr "Aviso"
+
+msgid "Info"
+msgstr "Informação"
+
+msgid "Are you sure?"
+msgstr "Tem certeza?"
+
+msgid "This action cannot be undone"
+msgstr "Esta ação não pode ser desfeita"
+
+msgid "Created successfully"
+msgstr "Criado com sucesso"
+
+msgid "Updated successfully"
+msgstr "Atualizado com sucesso"
+
+msgid "Deleted successfully"
+msgstr "Excluído com sucesso"
+
+msgid "Invalid credentials"
+msgstr "Credenciais inválidas"
+
+msgid "Field required"
+msgstr "Campo obrigatório"
+
+# Dates
+msgid "Today"
+msgstr "Hoje"
+
+msgid "Yesterday"
+msgstr "Ontem"
+
+msgid "Tomorrow"
+msgstr "Amanhã"
+
+msgid "This Week"
+msgstr "Esta Semana"
+
+msgid "This Month"
+msgstr "Este Mês"
+
+msgid "This Year"
+msgstr "Este Ano"
+
+msgid "Last Week"
+msgstr "Semana Passada"
+
+msgid "Last Month"
+msgstr "Mês Passado"
+
+msgid "Last Year"
+msgstr "Ano Passado"
+
+# Common fields
+msgid "Created At"
+msgstr "Criado em"
+
+msgid "Updated At"
+msgstr "Atualizado em"
+
+msgid "Active"
+msgstr "Ativo"
+
+msgid "Inactive"
+msgstr "Inativo"
+
+msgid "All"
+msgstr "Todos"
+
+msgid "None"
+msgstr "Nenhum"
+
+msgid "Yes"
+msgstr "Sim"
+
+msgid "No"
+msgstr "Não"

@@ -1,0 +1,444 @@
+# 📋 DEVELOPMENT RULES - Innexar ERP SaaS Multi-Tenant
+
+## 🎯 CONTEXTO DO PROJETO
+
+### Missão
+Criar um **ERP SaaS Multi-Tenant World-Class** usando Frappe Framework, competindo com líderes globais.
+
+### Arquitetura Escolhida
+- **Framework:** Frappe v15 (Python/MariaDB/Redis)
+- **Multi-tenancy:** Site-based (1 database por tenant)
+- **Deploy:** Docker Desktop (Windows) via frappe_docker oficial
+- **Frontend:** Frappe UI + Custom Pages/Workspaces
+- **Backend:** Python APIs + DocTypes
+- **Billing:** Stripe (webhooks para autoprovision)
+- **Market:** USA-first → Brazil → LATAM
+
+### Decisões Técnicas Importantes
+1. ✅ **Frappe Framework** escolhido vs NestJS custom (após análise comparativa)
+2. ✅ **Docker Desktop** em vez de WSL2 (preferência do usuário)
+3. ✅ **Site-based multi-tenancy** vs app-level (padrão Frappe, mais isolamento)
+4. ✅ **Stripe webhooks** para autoprovision (signup no site institucional externo)
+5. ✅ **APIs reais** sempre (zero mocks, dados reais desde o início)
+6. ✅ **SeaNotes patterns** para factories e services (inspiração de projeto real)
+
+---
+
+## 📚 REGRAS DE DESENVOLVIMENTO FRAPPE
+
+### 1. **Estrutura de Arquivos Frappe**
+```
+apps/innexar_core/
+├── innexar_core/
+│   ├── __init__.py (OBRIGATÓRIO - Python package)
+│   ├── hooks.py (configuração app, formato PYTHON não JSON!)
+│   ├── innexar_erp/
+│   │   ├── __init__.py (OBRIGATÓRIO)
+│   │   ├── doctype/
+│   │   │   ├── __init__.py (OBRIGATÓRIO)
+│   │   │   ├── tenant/
+│   │   │   │   ├── __init__.py (OBRIGATÓRIO)
+│   │   │   │   ├── tenant.json (metadata)
+│   │   │   │   ├── tenant.py (controller, herda Document)
+│   │   │   │   └── tenant_list.js (customização list view)
+│   │   ├── page/
+│   │   │   ├── __init__.py (OBRIGATÓRIO)
+│   │   │   ├── tenant_dashboard/
+│   │   │   │   ├── __init__.py (OBRIGATÓRIO)
+│   │   │   │   ├── tenant_dashboard.json (doctype: "Page")
+│   │   │   │   ├── tenant_dashboard.py (backend APIs)
+│   │   │   │   ├── tenant_dashboard.js (frontend)
+│   │   │   │   └── tenant_dashboard.html
+│   │   ├── workspace/
+│   │   │   ├── __init__.py (OBRIGATÓRIO)
+│   │   │   └── innexar_admin.json (doctype: "Workspace")
+│   ├── api.py (public APIs com @frappe.whitelist)
+│   ├── stripe_webhook.py (webhook handlers)
+│   ├── tenant_management/
+│   │   ├── __init__.py (OBRIGATÓRIO)
+│   │   └── autoprovision.py
+├── setup.py
+├── requirements.txt
+└── README.md
+```
+
+**⚠️ REGRA CRÍTICA:** TODO diretório Python DEVE ter `__init__.py`, senão `ModuleNotFoundError`!
+
+### 2. **hooks.py - Formato Correto**
+```python
+# hooks.py - SEMPRE Python, NUNCA JSON!
+app_name = "innexar_core"
+app_title = "Innexar Core"
+app_publisher = "Innexar Inc"
+app_description = "Multi-tenant SaaS foundation"
+app_email = "dev@innexar.com"
+app_license = "MIT"
+app_version = "0.0.1"
+
+required_apps = ["frappe"]
+
+# Hooks opcionais (comentados servem como documentação)
+# scheduler_events = {
+#     "daily": ["innexar_core.tasks.daily"]
+# }
+```
+
+**❌ NUNCA** usar formato JSON em hooks.py!
+
+### 3. **DocType JSON - Campos Obrigatórios**
+```json
+{
+  "doctype": "DocType",  // ← OBRIGATÓRIO
+  "name": "Tenant",
+  "module": "Innexar ERP",
+  "custom": 0,
+  "istable": 0,
+  "editable_grid": 1,
+  "fields": [...],
+  "permissions": [...],
+  "modified": "2025-11-13 15:00:00",
+  "modified_by": "Administrator",
+  "owner": "Administrator"
+}
+```
+
+### 4. **Page/Workspace JSON - Campos Obrigatórios**
+```json
+{
+  "doctype": "Page",  // ← OBRIGATÓRIO (ou "Workspace")
+  "name": "tenant-dashboard",
+  "title": "Tenant Dashboard",
+  "module": "Innexar ERP",
+  "standard": "Yes",
+  "modified": "2025-11-13 15:00:00",
+  "modified_by": "Administrator",
+  "owner": "Administrator"
+}
+```
+
+### 5. **Public APIs - Decorador Correto**
+```python
+import frappe
+
+@frappe.whitelist(allow_guest=True)  # ← Para APIs públicas
+def check_subdomain(subdomain):
+    return {"available": True, "subdomain": subdomain}
+
+@frappe.whitelist()  # ← Apenas autenticado
+def get_tenant_stats():
+    # Requer login
+    return {"total": 10}
+```
+
+### 6. **DocType Controller - Estrutura Padrão**
+```python
+import frappe
+from frappe.model.document import Document
+
+class Tenant(Document):
+    def validate(self):
+        """Validações antes de salvar"""
+        self.validate_subdomain()
+    
+    def before_insert(self):
+        """Executado antes de inserir no DB"""
+        pass
+    
+    def after_insert(self):
+        """Executado após inserir no DB"""
+        pass
+    
+    def on_update(self):
+        """Executado após update"""
+        pass
+```
+
+### 7. **Queries SQL - Usar Prepared Statements**
+```python
+# ✅ CORRETO - Seguro contra SQL injection
+data = frappe.db.sql("""
+    SELECT * FROM `tabTenant`
+    WHERE status = %s AND plan = %s
+""", (status, plan), as_dict=True)
+
+# ❌ ERRADO - SQL injection vulnerability
+data = frappe.db.sql(f"SELECT * FROM `tabTenant` WHERE status = '{status}'")
+```
+
+### 8. **Nomes de Tabelas - Frappe Convention**
+```python
+# Frappe adiciona prefixo "tab" automaticamente
+DocType: Tenant       → Tabela: `tabTenant`
+DocType: Subscription → Tabela: `tabSubscription`
+
+# Usar sempre em queries:
+frappe.db.sql("SELECT * FROM `tabTenant`")
+```
+
+---
+
+## 🔄 WORKFLOW DE DESENVOLVIMENTO
+
+### Processo Obrigatório para Qualquer Mudança
+
+1. **SEMPRE verificar logs primeiro**
+   ```bash
+   docker logs frappe_docker_official-backend-1 --tail 100
+   ```
+
+2. **Fazer mudanças localmente** (Windows)
+   ```
+   Editar em: c:\innexar_erp\apps\innexar_core\...
+   ```
+
+3. **Copiar para container**
+   ```bash
+   docker cp arquivo.py frappe_docker_official-backend-1:/home/frappe/frappe-bench/apps/innexar_core/...
+   ```
+
+4. **Migrar se necessário** (DocTypes, Pages, Workspaces)
+   ```bash
+   docker exec frappe_docker_official-backend-1 bench --site innexar.local migrate
+   ```
+
+5. **Reiniciar backend** (mudanças em hooks.py, Python)
+   ```bash
+   docker restart frappe_docker_official-backend-1
+   ```
+
+6. **Verificar logs novamente**
+   ```bash
+   docker logs frappe_docker_official-backend-1 --tail 50
+   ```
+
+7. **Testar API/UI**
+   ```bash
+   # Via PowerShell
+   Invoke-WebRequest -Uri "http://localhost:8080/api/method/..." -UseBasicParsing
+   
+   # Ou navegador
+   http://localhost:8080/app/tenant-dashboard
+   ```
+
+### Checklist Antes de Commit
+
+- [ ] Logs verificados (sem erros)
+- [ ] APIs testadas (retornam 200 + JSON correto)
+- [ ] UI testada (dashboard carrega, botões funcionam)
+- [ ] Migrations executadas
+- [ ] `__init__.py` criados em todos os diretórios Python
+- [ ] Código documentado (docstrings)
+- [ ] Contexto registrado em `CHANGELOG.md`
+
+---
+
+## 📝 REGISTRO DE CONTEXTO
+
+### Formato para CHANGELOG.md
+
+```markdown
+## [2025-11-13] - Dashboard Admin Criado
+
+### Adicionado
+- Workspace "Innexar Admin" com cards organizados
+- Page "Tenant Dashboard" com KPIs, charts (Chart.js)
+- APIs backend: get_dashboard_data, get_mrr_trend, get_plan_distribution
+- List view customizations: tenant_list.js, subscription_list.js
+- Script de dados de teste: create_test_data.py (9 tenants)
+
+### Mudado
+- hooks.py convertido de JSON para Python (formato correto Frappe)
+- autoprovision.py: removido parâmetro admin_email não usado
+
+### Corrigido
+- ModuleNotFoundError: adicionados __init__.py em todos os diretórios
+- DocType JSONs: adicionado campo "doctype" obrigatório
+- Page JSON: adicionados campos modified, modified_by, owner
+
+### Logs Verificados
+- ✅ Backend iniciou sem erros
+- ✅ Gunicorn workers rodando (pid 7, 8)
+- ✅ Dashboard updates: frappe, innexar_core
+
+### APIs Testadas
+- ✅ check_subdomain: retorna {"available": true}
+- ✅ get_dashboard_data: retorna KPIs corretos
+
+### Files Modified
+- innexar_core/hooks.py
+- innexar_core/innexar_erp/workspace/innexar_admin.json
+- innexar_core/innexar_erp/page/tenant_dashboard/*
+- innexar_core/innexar_erp/doctype/tenant/tenant_list.js
+- innexar_core/innexar_erp/doctype/subscription/subscription_list.js
+- innexar_core/create_test_data.py
+
+### Containers Status
+- frappe_docker_official-backend-1: Running ✅
+- frappe_docker_official-db-1: Running ✅
+- frappe_docker_official-redis-cache-1: Running ✅
+
+### Next Steps
+- [ ] Configurar Stripe webhooks com secrets
+- [ ] Testar fluxo signup → webhook → autoprovision
+- [ ] Documentar integração site institucional
+```
+
+---
+
+## 🚨 ERROS COMUNS E SOLUÇÕES
+
+### 1. ModuleNotFoundError: No module named 'innexar_core'
+**Causa:** Faltando `__init__.py` em algum diretório
+**Solução:**
+```bash
+docker exec frappe_docker_official-backend-1 find /home/frappe/frappe-bench/apps/innexar_core -type d -exec touch {}/__init__.py \;
+docker restart frappe_docker_official-backend-1
+```
+
+### 2. KeyError: 'doctype' durante migrate
+**Causa:** JSON de DocType/Page/Workspace sem campo "doctype"
+**Solução:** Adicionar `"doctype": "Page"` ou `"doctype": "Workspace"`
+
+### 3. hooks.py não funciona
+**Causa:** Formato JSON em vez de Python
+**Solução:** Converter para Python (ver seção "hooks.py - Formato Correto")
+
+### 4. API retorna 404
+**Causa:** Decorador `@frappe.whitelist()` faltando
+**Solução:** Adicionar decorador antes da função
+
+### 5. API retorna 403 (Forbidden)
+**Causa:** API privada (sem allow_guest) acessada sem login
+**Solução:** Adicionar `allow_guest=True` ou fazer login primeiro
+
+### 6. Charts não renderizam
+**Causa:** Chart.js não carregado ou erro JS
+**Solução:** 
+- Abrir DevTools (F12) → Console
+- Verificar erros JS
+- Confirmar `new Chart()` funcionando
+
+### 7. Workspace não aparece
+**Causa:** Migrate não executado ou JSON inválido
+**Solução:**
+```bash
+docker exec frappe_docker_official-backend-1 bench --site innexar.local migrate
+docker restart frappe_docker_official-backend-1
+```
+
+---
+
+## 🔐 SEGURANÇA
+
+### Senhas e Secrets
+- ❌ **NUNCA** commitar senhas reais em `.env`
+- ✅ Usar `.env` apenas para desenvolvimento local
+- ✅ Produção: AWS Secrets Manager, Azure Key Vault, Docker Secrets
+- ✅ `.env` está no `.gitignore`
+
+### SQL Injection
+- ❌ **NUNCA** usar f-strings em queries SQL
+- ✅ Sempre usar prepared statements com `%s` placeholders
+
+### XSS (Cross-Site Scripting)
+- ✅ Frappe sanitiza automaticamente inputs
+- ⚠️ Cuidado com `frappe.render_template()` de dados não confiáveis
+
+### API Authentication
+- ✅ Usar `@frappe.whitelist(allow_guest=True)` apenas para APIs públicas
+- ✅ Validar inputs sempre (subdomain format, email, etc)
+
+---
+
+## 📊 MÉTRICAS DE QUALIDADE
+
+### Performance
+- Queries SQL: max 100ms (usar `EXPLAIN` para otimizar)
+- API response time: max 500ms
+- Dashboard load: max 2s
+
+### Código
+- Cobertura de testes: min 70% (futuro)
+- Complexity: max 10 (cyclomatic)
+- Docstrings: todas funções públicas
+
+### UX
+- Loading states: sempre mostrar spinners
+- Erro handling: mensagens claras, não técnicas
+- Responsive: suportar mobile (futuro)
+
+---
+
+## 🎯 PRIORIDADES
+
+### P0 (Crítico - Blocker)
+1. Sistema funcional (Docker rodando, APIs respondendo)
+2. Dados corretos (queries retornam valores reais)
+3. Sem erros nos logs
+
+### P1 (Alto - Must Have)
+1. Stripe webhooks funcionando
+2. Autoprovision criando tenants
+3. Dashboard com dados reais
+
+### P2 (Médio - Should Have)
+1. Email service integrado
+2. Testes automatizados
+3. CI/CD pipeline
+
+### P3 (Baixo - Nice to Have)
+1. Charts avançados (forecasting)
+2. Mobile responsive
+3. Dark mode
+
+---
+
+## 📚 REFERÊNCIAS
+
+### Documentação Oficial Frappe
+- **Framework:** https://frappeframework.com/docs
+- **DocTypes:** https://frappeframework.com/docs/user/en/basics/doctypes
+- **APIs:** https://frappeframework.com/docs/user/en/api
+- **Hooks:** https://frappeframework.com/docs/user/en/python-api/hooks
+
+### Comandos Bench Úteis
+```bash
+# Criar DocType
+bench --site innexar.local make-doctype "Tenant"
+
+# Migrar
+bench --site innexar.local migrate
+
+# Console Python
+bench --site innexar.local console
+
+# Execute script
+bench --site innexar.local execute module.function
+
+# Reinstalar app
+bench --site innexar.local reinstall-app innexar_core
+
+# Clear cache
+bench --site innexar.local clear-cache
+```
+
+### Patterns Importantes
+- **Factory Pattern:** Services (email, payment, tax) via factories
+- **Repository Pattern:** Data access via frappe.db.get_value, get_list
+- **MVC:** DocType (Model), JS (Controller), HTML/JSON (View)
+
+---
+
+## ✅ ÚLTIMA ATUALIZAÇÃO
+
+**Data:** 2025-11-13 15:20 UTC
+**Status:** Dashboard Admin criado e funcionando
+**Containers:** 9/9 running
+**APIs:** 4 endpoints ativos (check_subdomain, create_tenant, get_tenant_stats, list_tenants)
+**Tenants de Teste:** 9 criados (6 Active, 2 Trial)
+**MRR Atual:** $1,497/mês
+**Próximo:** Configurar Stripe webhooks
+
+---
+
+**⚠️ REGRA DE OURO:** Sempre verificar logs antes e depois de qualquer mudança!

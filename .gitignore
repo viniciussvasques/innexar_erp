@@ -1,73 +1,16 @@
-### Python
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-*.egg-info/
-.python-version
-
-### Node/Yarn
-**/node_modules/
-yarn-error.log
-
-### Environment / Secrets
-.env
-.env.*
-
-### Editors / OS
-.vscode/
-.idea/
-.DS_Store
-Thumbs.db
-
-### Logs
-**/logs/
-**/*.log
-
-### Frappe / Bench Sites
-# Ignora todo o conteúdo de sites gerado em runtime,
-# mas mantém apenas o common_site_config.json versionado
-innexar/sites/**
-!innexar/sites/common_site_config.json
-
-### Builds/Assets gerados
-**/public/**
-**/dist/**
-**/build/**
-
-# Virtualenv local
-env/
-
-### Docker
-**/.docker/
-**/.cache/
-
 # Python
 __pycache__/
 *.py[cod]
-*.egg-info/
-.pytest_cache/
-
-# Node
-node_modules/
-*.log
-
-# Frappe/Bench
-*.swp
-*.swo
-assets/
-public/**
-
-# Docker/Build
+venv/
 .env
-.bench/
 
-# Sites (preservar apenas .gitkeep)
-innexar/sites/**
-!innexar/sites/*/
-!innexar/sites/*/.gitkeep
+# Django
+*.log
+db.sqlite3
+backend/staticfiles/
+backend/media/
+backend/celerybeat-schedule
 
 # IDE
 .vscode/
 .idea/
-

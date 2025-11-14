@@ -1,0 +1,221 @@
+# 🎯 Regras de Desenvolvimento - Innexar ERP Frontend
+
+## 📋 VISÃO GERAL
+
+Este é um projeto profissional de frontend para sistema ERP multi-tenant. Todas as regras abaixo devem ser seguidas rigorosamente.
+
+## 🏗️ ESTRUTURA DO PROJETO
+
+### Organização de Arquivos
+
+1. **Documentação:** Todos os arquivos `.md` devem estar em `docs/`
+   - Exceção: `README.md` na raiz
+   - Criar `docs/CONTEXTO.md` e atualizar após cada tarefa
+
+2. **Testes:** Todos os testes em `tests/`
+   - Estrutura espelha a estrutura do código
+   - Exemplo: `components/ui/button.tsx` → `tests/components/ui/button.test.tsx`
+
+3. **Configurações:** Arquivos de config na raiz
+   - `.prettierrc`, `.eslintrc.json`, `jest.config.js`, etc.
+
+### ⚠️ IMPORTANTE: Arquitetura de Domínios
+
+- **Cadastro (register)** existe APENAS no site institucional (`innexar.app`)
+- **Aplicação tenant** (`{tenant}.innexar.app`) tem APENAS login
+- NÃO criar página `/register` na aplicação tenant
+- Sempre referenciar `https://innexar.app/register` quando necessário
+
+## 📝 PADRÕES DE CÓDIGO
+
+### TypeScript
+- ✅ Sempre usar TypeScript strict mode
+- ✅ Tipar todas as funções e componentes
+- ✅ Usar interfaces para props de componentes
+- ✅ Evitar `any` - usar `unknown` se necessário
+- ✅ Usar tipos da API em `types/api.ts`
+
+### React/Next.js
+- ✅ Usar Server Components por padrão
+- ✅ Marcar Client Components com `'use client'` apenas quando necessário
+- ✅ Usar hooks customizados para lógica reutilizável
+- ✅ Componentes devem ser pequenos e focados
+- ✅ Props devem ser desestruturadas
+
+### Estilização
+- ✅ Usar TailwindCSS classes
+- ✅ Usar `cn()` utility para combinar classes
+- ✅ Seguir design system do shadcn/ui
+- ✅ Responsive design mobile-first
+
+### Nomenclatura
+- ✅ Componentes: PascalCase (`Button.tsx`)
+- ✅ Arquivos: camelCase para utils, PascalCase para componentes
+- ✅ Variáveis/funções: camelCase
+- ✅ Constantes: UPPER_SNAKE_CASE
+- ✅ Types/Interfaces: PascalCase
+
+## 🧪 TESTES
+
+### Obrigatório
+- ✅ Testes unitários para componentes UI
+- ✅ Testes para hooks customizados
+- ✅ Testes para utilitários
+- ✅ Coverage mínimo: 70%
+
+### Estrutura de Testes
+```typescript
+describe('ComponentName', () => {
+  it('should render correctly', () => {
+    // Arrange
+    // Act
+    // Assert
+  })
+})
+```
+
+### Executar Testes
+- `npm run test` - Executar todos
+- `npm run test:watch` - Modo watch
+- `npm run test:coverage` - Com coverage
+
+## 📚 DOCUMENTAÇÃO
+
+### Arquivo de Contexto
+- **Localização:** `docs/CONTEXTO.md`
+- **Atualizar:** Após cada tarefa concluída
+- **Conteúdo:**
+  - Tarefas completadas
+  - Problemas conhecidos
+  - Próximas tarefas
+  - Mudanças significativas
+
+### Comentários no Código
+- ✅ Documentar funções complexas
+- ✅ Explicar "porquês", não "o quês"
+- ✅ Usar JSDoc para funções públicas
+- ❌ Evitar comentários óbvios
+
+## 🔄 WORKFLOW
+
+### Antes de Commitar
+1. ✅ Executar `npm run lint`
+2. ✅ Executar `npm run type-check`
+3. ✅ Executar `npm run test`
+4. ✅ Executar `npm run format`
+5. ✅ Atualizar `docs/CONTEXTO.md`
+
+### Commits
+- ✅ Usar Conventional Commits
+- ✅ Mensagens claras e descritivas
+- ✅ Um commit por feature/fix
+
+### Pull Requests
+- ✅ Descrição clara do que foi feito
+- ✅ Screenshots se houver mudanças visuais
+- ✅ Testes passando
+- ✅ Code review obrigatório
+
+## 🛠️ FERRAMENTAS
+
+### Obrigatórias
+- **ESLint** - Linting
+- **Prettier** - Formatação
+- **Jest** - Testes
+- **TypeScript** - Type checking
+- **Husky** - Git hooks
+
+### Configuração VS Code
+- Usar extensões recomendadas em `.vscode/extensions.json`
+- Formatação automática ao salvar
+- ESLint auto-fix ao salvar
+
+## 🚫 NÃO FAZER
+
+- ❌ Commitar sem testes
+- ❌ Commitar código não formatado
+- ❌ Usar `any` sem justificativa
+- ❌ Criar componentes sem testes
+- ❌ Deixar console.log em produção
+- ❌ Commitar arquivos de ambiente
+- ❌ Quebrar testes existentes
+
+## ✅ CHECKLIST ANTES DE FINALIZAR TAREFA
+
+- [ ] Código formatado (`npm run format`)
+- [ ] Linter passando (`npm run lint`)
+- [ ] Type check passando (`npm run type-check`)
+- [ ] Testes passando (`npm run test`)
+- [ ] Testes escritos para novo código
+- [ ] **Traduções revisadas e completas** (en, pt, es) ⚠️ **OBRIGATÓRIO**
+- [ ] `docs/CONTEXTO.md` atualizado
+- [ ] Documentação atualizada se necessário
+- [ ] Código revisado
+
+## 📦 DEPENDÊNCIAS
+
+### Adicionar Dependências
+- ✅ Verificar se já existe alternativa
+- ✅ Verificar manutenção ativa
+- ✅ Verificar bundle size
+- ✅ Documentar motivo da adição
+
+### Atualizar Dependências
+- ✅ Testar após atualização
+- ✅ Verificar breaking changes
+- ✅ Atualizar tipos se necessário
+
+## 🌍 INTERNACIONALIZAÇÃO
+
+- ✅ Todas as strings visíveis devem usar `useTranslations`
+- ✅ Adicionar traduções em `messages/en.json`, `pt.json`, `es.json`
+- ✅ Não hardcodar textos
+- ✅ Testar em todos os idiomas
+- ⚠️ **OBRIGATÓRIO:** Sempre revisar e completar traduções após implementar novas funcionalidades
+- ⚠️ **OBRIGATÓRIO:** Verificar que todas as strings estão traduzidas nos 3 idiomas (en, pt, es)
+- ⚠️ **OBRIGATÓRIO:** Adicionar traduções faltantes antes de finalizar qualquer tarefa
+
+## 🎨 UI/UX
+
+- ✅ Seguir design system do shadcn/ui
+- ✅ Acessibilidade (WCAG 2.1 AA)
+- ✅ Responsive design
+- ✅ Loading states
+- ✅ Error states
+- ✅ Empty states
+
+## 🔐 SEGURANÇA
+
+- ✅ Não expor tokens/keys no código
+- ✅ Validar inputs do usuário
+- ✅ Sanitizar dados antes de exibir
+- ✅ Usar HTTPS em produção
+- ✅ Validar permissões no frontend E backend
+
+## 📊 PERFORMANCE
+
+- ✅ Lazy loading de componentes pesados
+- ✅ Code splitting
+- ✅ Otimizar imagens (next/image)
+- ✅ Debounce em buscas
+- ✅ Virtual scrolling para listas grandes
+- ✅ Lighthouse score > 90
+
+## 🐛 DEBUGGING
+
+- ✅ Usar React DevTools
+- ✅ Usar Next.js DevTools
+- ✅ Logs estruturados
+- ✅ Error boundaries
+- ✅ Sentry para produção (se configurado)
+
+## 📞 SUPORTE
+
+- **Documentação:** Ver `docs/`
+- **API:** Ver `BACKEND_API_SPEC.md`
+- **Problemas:** Atualizar em `docs/CONTEXTO.md`
+
+---
+
+**Última atualização:** 2025-01-XX  
+**Versão:** 1.0.0

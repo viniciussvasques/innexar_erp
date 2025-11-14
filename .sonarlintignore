@@ -1,0 +1,14 @@
+# Arquivos de desenvolvimento/temporários
+temp_doctypes/
+docker/
+*.env
+Makefile
+
+# Arquivos gerados
+__pycache__/
+*.pyc
+*.pyo
+
+# Dockerfiles (regras muito rigorosas)
+Dockerfile*
+docker-compose*.yml
