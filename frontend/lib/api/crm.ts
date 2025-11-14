@@ -127,6 +127,8 @@ export const crmApi = {
 
   // Activities
   getActivities: async (params?: {
+    page?: number
+    page_size?: number
     activity_type?: string
     type?: string // Mantido para compatibilidade
     status?: string

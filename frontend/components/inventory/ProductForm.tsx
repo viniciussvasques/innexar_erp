@@ -126,14 +126,19 @@ export function ProductForm({ open, onClose, product, onSuccess }: ProductFormPr
 
   const onSubmit = async (data: ProductFormData) => {
     try {
+      // Convert null to undefined for max_stock to match API type
+      const submitData = {
+        ...data,
+        max_stock: data.max_stock ?? undefined,
+      }
       if (isEditing && product) {
-        await inventoryApi.updateProduct(product.id, data)
+        await inventoryApi.updateProduct(product.id, submitData)
         toast({
           title: tCommon('success'),
           description: t('updateSuccess'),
         })
       } else {
-        await inventoryApi.createProduct(data)
+        await inventoryApi.createProduct(submitData)
         toast({
           title: tCommon('success'),
           description: t('createSuccess'),

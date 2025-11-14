@@ -12,7 +12,8 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
 # Verificar se já é um repositório Git
 if (Test-Path .git) {
     Write-Host "✅ Repositório Git já inicializado" -ForegroundColor Green
-} else {
+}
+else {
     Write-Host "📦 Inicializando repositório Git..." -ForegroundColor Yellow
     git init
     Write-Host "✅ Repositório inicializado" -ForegroundColor Green
@@ -23,7 +24,8 @@ $remote = git remote get-url origin 2>$null
 if ($remote) {
     Write-Host "✅ Remote já configurado: $remote" -ForegroundColor Green
     Write-Host "💡 Para alterar o remote, use: git remote set-url origin <URL>" -ForegroundColor Yellow
-} else {
+}
+else {
     Write-Host "📝 Configure o remote do GitHub:" -ForegroundColor Yellow
     Write-Host "   git remote add origin https://github.com/SEU_USUARIO/innexar_erp.git" -ForegroundColor Gray
     Write-Host "   ou" -ForegroundColor Gray
@@ -34,7 +36,8 @@ if ($remote) {
 $branch = git branch --show-current 2>$null
 if ($branch) {
     Write-Host "✅ Branch atual: $branch" -ForegroundColor Green
-} else {
+}
+else {
     Write-Host "📝 Criando branch main..." -ForegroundColor Yellow
     git checkout -b main
 }
@@ -49,14 +52,16 @@ if ($status) {
         git commit -m "chore: Initial commit with CI/CD setup"
         Write-Host "✅ Commit inicial criado" -ForegroundColor Green
     }
-} else {
+}
+else {
     Write-Host "✅ Não há mudanças pendentes" -ForegroundColor Green
 }
 
 # Verificar se .gitignore existe
 if (Test-Path .gitignore) {
     Write-Host "✅ .gitignore encontrado" -ForegroundColor Green
-} else {
+}
+else {
     Write-Host "⚠️  .gitignore não encontrado. Criando..." -ForegroundColor Yellow
     @"
 # Python
