@@ -71,6 +71,8 @@ TENANT_APPS = [
     'apps.subscriptions',
     'apps.customers',
     'apps.invoices',
+    'apps.hr',             # HR (Human Resources) module
+    'apps.analytics',      # Analytics & Reports module
 ]
 
 INSTALLED_APPS = list(SHARED_APPS) + [
@@ -78,7 +80,7 @@ INSTALLED_APPS = list(SHARED_APPS) + [
 ]
 
 MIDDLEWARE = [
-    'django_tenants.middleware.main.TenantMainMiddleware',
+    'apps.tenants.middleware.CustomTenantMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -228,6 +230,20 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
 ]
 
 CORS_ALLOW_CREDENTIALS = True
+
+# CORS: Allow custom headers for tenant identification
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+    'x-dts-schema',  # Custom header for tenant schema identification
+]
 
 # Celery
 CELERY_BROKER_URL = env('CELERY_BROKER_URL', default='redis://redis:6379/0')

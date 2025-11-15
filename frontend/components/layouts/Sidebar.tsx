@@ -15,9 +15,19 @@ import {
   ChevronLeft,
   Sparkles,
   FolderKanban,
+  Briefcase,
+  ChevronDown,
+  ChevronRight,
+  Building2,
+  Calendar,
+  Clock,
+  Award,
+  GraduationCap,
+  UserCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { HRSubmenu } from './HRSubmenu'
 // import { useFeatures } from '@/lib/hooks/use-features' // Desabilitado durante desenvolvimento
 
 interface SidebarProps {
@@ -33,10 +43,18 @@ interface MenuItem {
   label: string
   module: string
   badge?: string
+  submenu?: SubMenuItem[]
+}
+
+interface SubMenuItem {
+  href: string
+  icon: React.ComponentType<{ className?: string }>
+  label: string
 }
 
 export function Sidebar({ open, onClose, collapsed, onToggleCollapse }: SidebarProps) {
   const t = useTranslations('nav')
+  const tHr = useTranslations('hr')
   // const tPlans = useTranslations('plans') // Desabilitado durante desenvolvimento
   const pathname = usePathname()
   // const { hasFeature, plan, isStarter } = useFeatures() // Desabilitado durante desenvolvimento
@@ -50,6 +68,25 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse }: SidebarP
     { href: '/invoicing', icon: FileText, label: t('invoicing'), module: 'invoicing' },
     { href: '/inventory', icon: Package, label: t('inventory'), module: 'inventory' },
     { href: '/projects', icon: FolderKanban, label: t('projects'), module: 'projects' },
+    {
+      href: '/hr',
+      icon: Briefcase,
+      label: t('hr'),
+      module: 'hr',
+      submenu: [
+        { href: '/hr', icon: LayoutDashboard, label: tHr('dashboard') },
+        { href: '/hr/employees', icon: Users, label: tHr('employees') },
+        { href: '/hr/job-positions', icon: Briefcase, label: tHr('jobPositions') },
+        { href: '/hr/departments', icon: Building2, label: tHr('departments') },
+        { href: '/hr/payroll', icon: DollarSign, label: tHr('payroll') },
+        { href: '/hr/time-records', icon: Clock, label: tHr('timeRecords') },
+        { href: '/hr/vacations', icon: Calendar, label: tHr('vacations') },
+        { href: '/hr/benefits', icon: Award, label: tHr('benefits') },
+        { href: '/hr/performance', icon: TrendingUp, label: tHr('performance') },
+        { href: '/hr/trainings', icon: GraduationCap, label: tHr('trainings') },
+        { href: '/hr/recruitment', icon: UserCheck, label: tHr('recruitment') },
+      ],
+    },
     { href: '/settings', icon: Settings, label: t('settings'), module: 'settings' },
   ]
 
@@ -118,8 +155,37 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse }: SidebarP
           {menuItems.map(item => {
               const Icon = item.icon
               const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+              const hasSubmenu = item.submenu && item.submenu.length > 0
+
               // Durante desenvolvimento, todos os módulos estão disponíveis
               // TODO: Reativar verificação de plano em produção
+
+              if (hasSubmenu && !collapsed) {
+                return (
+                  <div key={item.href} className="space-y-1">
+                    <Link
+                      href={item.href}
+                      onClick={() => onClose()}
+                      className={cn(
+                        'flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-150 group relative cursor-pointer',
+                        isActive
+                          ? 'bg-primary text-white shadow-md shadow-primary/20'
+                          : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-50'
+                      )}
+                    >
+                      <Icon
+                        className={cn(
+                          'h-5 w-5 flex-shrink-0',
+                          isActive && 'text-white',
+                          !isActive && 'text-slate-600 dark:text-slate-400'
+                        )}
+                      />
+                      <span className="text-sm font-medium flex-1">{item.label}</span>
+                    </Link>
+                    <HRSubmenu isActive={isActive} submenu={item.submenu!} onClose={onClose} />
+                  </div>
+                )
+              }
 
               return (
                 <Link

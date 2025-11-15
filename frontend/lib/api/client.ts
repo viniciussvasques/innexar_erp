@@ -9,15 +9,39 @@ export const apiClient: AxiosInstance = axios.create({
   },
 })
 
-// Request interceptor para adicionar token
+// Request interceptor para adicionar token e tenant schema
 apiClient.interceptors.request.use(
   config => {
     if (typeof window !== 'undefined') {
       const accessToken = localStorage.getItem('access_token')
       const locale = localStorage.getItem('locale') || 'en'
+      
+      // Get tenant schema from user data or localStorage
+      let tenantSchema = localStorage.getItem('tenant_schema')
+      if (!tenantSchema) {
+        // Try to get from user data
+        const userStr = localStorage.getItem('user')
+        if (userStr) {
+          try {
+            const user = JSON.parse(userStr)
+            if (user.default_tenant_schema) {
+              tenantSchema = user.default_tenant_schema
+              localStorage.setItem('tenant_schema', tenantSchema)
+            }
+          } catch (e) {
+            // Ignore parse errors
+          }
+        }
+      }
 
       if (accessToken) {
         config.headers.Authorization = `Bearer ${accessToken}`
+      }
+
+      // Add tenant schema header for django-tenants
+      // This allows the backend to route to the correct tenant schema
+      if (tenantSchema && !config.url?.includes('/api/v1/public/')) {
+        config.headers['X-DTS-SCHEMA'] = tenantSchema
       }
 
       config.headers['Accept-Language'] = locale === 'pt' ? 'pt-BR' : locale
@@ -33,7 +57,11 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   response => response,
   async (error: AxiosError) => {
-    const originalRequest = error.config as any
+    const originalRequest = error.config as (typeof error.config & { _retry?: boolean }) | undefined
+
+    if (!originalRequest) {
+      return Promise.reject(error)
+    }
 
     // Tratamento de 401 - Token expirado ou inválido
     if (error.response?.status === 401 && !originalRequest._retry) {
@@ -77,16 +105,18 @@ apiClient.interceptors.response.use(
       }
     }
 
-    // Tratamento de outros erros comuns
-    if (error.response?.status === 403) {
-      console.error('Forbidden: User does not have permission')
-    } else if (error.response?.status === 404) {
-      console.error('Not Found: Resource does not exist')
-    } else if (error.response?.status === 500) {
-      console.error('Server Error: Internal server error')
-    } else if (!error.response) {
-      // Erro de rede
-      console.error('Network Error: Unable to connect to server')
+    // Tratamento de outros erros comuns (apenas em desenvolvimento)
+    if (process.env.NODE_ENV === 'development') {
+      if (error.response?.status === 403) {
+        console.error('Forbidden: User does not have permission')
+      } else if (error.response?.status === 404) {
+        console.error('Not Found: Resource does not exist')
+      } else if (error.response?.status === 500) {
+        console.error('Server Error: Internal server error')
+      } else if (!error.response) {
+        // Erro de rede
+        console.error('Network Error: Unable to connect to server')
+      }
     }
 
     return Promise.reject(error)

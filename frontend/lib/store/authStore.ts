@@ -23,6 +23,12 @@ export const useAuthStore = create<AuthState>()(
         localStorage.setItem('access_token', accessToken)
         localStorage.setItem('refresh_token', refreshToken)
         localStorage.setItem('user', JSON.stringify(user))
+        
+        // Store tenant schema if available
+        if (user.default_tenant_schema) {
+          localStorage.setItem('tenant_schema', user.default_tenant_schema)
+        }
+        
         set({
           user,
           accessToken,
@@ -34,6 +40,7 @@ export const useAuthStore = create<AuthState>()(
         localStorage.removeItem('access_token')
         localStorage.removeItem('refresh_token')
         localStorage.removeItem('user')
+        localStorage.removeItem('tenant_schema')
         set({
           user: null,
           accessToken: null,

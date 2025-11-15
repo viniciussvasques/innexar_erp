@@ -270,14 +270,14 @@ export function ActivityForm({
                 <div className="space-y-2">
                   <Label htmlFor="lead">{t('lead')}</Label>
                   <Select
-                    value={watch('lead')?.toString() || ''}
-                    onValueChange={value => setValue('lead', value ? parseInt(value) : null)}
+                    value={watch('lead')?.toString() || 'none'}
+                    onValueChange={value => setValue('lead', value === 'none' ? null : parseInt(value))}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder={tPlaceholders('lead')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">{t('none')}</SelectItem>
+                      <SelectItem value="none">{t('none')}</SelectItem>
                       {leadsData?.results.map(lead => (
                         <SelectItem key={lead.id} value={lead.id.toString()}>
                           {lead.name}
@@ -290,14 +290,14 @@ export function ActivityForm({
                 <div className="space-y-2">
                   <Label htmlFor="contact">{t('contact')}</Label>
                   <Select
-                    value={watch('contact')?.toString() || ''}
-                    onValueChange={value => setValue('contact', value ? parseInt(value) : null)}
+                    value={watch('contact')?.toString() || 'none'}
+                    onValueChange={value => setValue('contact', value === 'none' ? null : parseInt(value))}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder={tPlaceholders('contact')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">{t('none')}</SelectItem>
+                      <SelectItem value="none">{t('none')}</SelectItem>
                       {contactsData?.results.map(contact => (
                         <SelectItem key={contact.id} value={contact.id.toString()}>
                           {contact.name}
@@ -310,14 +310,14 @@ export function ActivityForm({
                 <div className="space-y-2">
                   <Label htmlFor="deal">{t('deal')}</Label>
                   <Select
-                    value={watch('deal')?.toString() || ''}
-                    onValueChange={value => setValue('deal', value ? parseInt(value) : null)}
+                    value={watch('deal')?.toString() || 'none'}
+                    onValueChange={value => setValue('deal', value === 'none' ? null : parseInt(value))}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder={tPlaceholders('deal')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">{t('none')}</SelectItem>
+                      <SelectItem value="none">{t('none')}</SelectItem>
                       {dealsData?.results.map(deal => (
                         <SelectItem key={deal.id} value={deal.id.toString()}>
                           {deal.title}

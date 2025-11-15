@@ -276,14 +276,14 @@ export function DealForm({ open, onClose, deal, onSuccess }: DealFormProps) {
               <div className="space-y-2">
                 <Label htmlFor="contact">{t('contact')}</Label>
                 <Select
-                  value={watch('contact')?.toString() || ''}
-                  onValueChange={value => setValue('contact', value ? parseInt(value) : undefined)}
+                  value={watch('contact')?.toString() || 'none'}
+                  onValueChange={value => setValue('contact', value === 'none' ? undefined : parseInt(value))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder={tPlaceholders('contact')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">{t('noContact')}</SelectItem>
+                    <SelectItem value="none">{t('noContact')}</SelectItem>
                     {contactsData?.results.map(contact => (
                       <SelectItem key={contact.id} value={contact.id.toString()}>
                         {contact.name} {contact.email ? `(${contact.email})` : ''}

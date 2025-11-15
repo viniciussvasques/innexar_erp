@@ -17,6 +17,8 @@ urlpatterns = [
         path('subscriptions/', include('apps.subscriptions.urls')),
         path('customers/', include('apps.customers.urls')),
         path('invoices/', include('apps.invoices.urls')),
+        path('hr/', include('apps.hr.urls')),
+        path('analytics/', include('apps.analytics.urls')),
     ])),
     
     # API Documentation

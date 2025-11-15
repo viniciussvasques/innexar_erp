@@ -331,7 +331,7 @@ export default function FinancePage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <Tabs value={accountType} onValueChange={value => {
-                setAccountType(value as any)
+                setAccountType(value as 'receivable' | 'payable' | 'all')
                 setPage(1)
               }}>
                 <TabsList>

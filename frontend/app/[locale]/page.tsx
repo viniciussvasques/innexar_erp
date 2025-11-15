@@ -22,6 +22,7 @@ type LoginForm = z.infer<typeof loginSchema>
 
 export default function HomePage() {
   const t = useTranslations('auth')
+  const tCommon = useTranslations('common')
   const tHome = useTranslations('home')
   const router = useRouter()
   const setAuth = useAuthStore(state => state.setAuth)
@@ -240,7 +241,7 @@ export default function HomePage() {
                   {loading ? (
                     <span className="flex items-center gap-2">
                       <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      {t('loading', { ns: 'common' })}
+                      {tCommon('loading')}
                     </span>
                   ) : (
                     <span className="flex items-center gap-2">

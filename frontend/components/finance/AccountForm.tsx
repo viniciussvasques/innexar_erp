@@ -215,14 +215,14 @@ export function AccountForm({ open, onClose, account, onSuccess }: AccountFormPr
               <div className="space-y-2">
                 <Label htmlFor="category_id">{t('category')}</Label>
                 <Select
-                  value={watch('category_id')?.toString() || ''}
-                  onValueChange={value => setValue('category_id', value ? parseInt(value) : undefined)}
+                  value={watch('category_id')?.toString() || 'none'}
+                  onValueChange={value => setValue('category_id', value === 'none' ? undefined : parseInt(value))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder={t('category')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">{tCommon('none')}</SelectItem>
+                    <SelectItem value="none">{tCommon('none')}</SelectItem>
                     {relevantCategories.map(category => (
                       <SelectItem key={category.id} value={category.id.toString()}>
                         {category.name}
@@ -306,14 +306,14 @@ export function AccountForm({ open, onClose, account, onSuccess }: AccountFormPr
               <div className="space-y-2">
                 <Label htmlFor="customer_id">{t('customer')}</Label>
                 <Select
-                  value={watch('customer_id')?.toString() || ''}
-                  onValueChange={value => setValue('customer_id', value ? parseInt(value) : undefined)}
+                  value={watch('customer_id')?.toString() || 'none'}
+                  onValueChange={value => setValue('customer_id', value === 'none' ? undefined : parseInt(value))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder={t('customer')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">{tCommon('none')}</SelectItem>
+                    <SelectItem value="none">{tCommon('none')}</SelectItem>
                     {contactsData?.results
                       .filter(contact => contact.is_customer)
                       .map(contact => (
