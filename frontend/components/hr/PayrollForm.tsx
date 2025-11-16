@@ -127,13 +127,14 @@ export function PayrollForm({
     onError: (error: any) => {
       toast({
         title: tCommon('error'),
-        description: error.response?.data?.detail || 'Failed to recalculate payroll',
+        description: error?.response?.data?.detail || error?.message || tCommon('errorOccurred'),
         variant: 'destructive',
       })
     },
   })
 
   React.useEffect(() => {
+    if (open) {
     if (payroll) {
       reset({
         employee_id: payroll.employee_id || payroll.employee?.id,
@@ -173,7 +174,9 @@ export function PayrollForm({
         other_deductions: '0',
       })
     }
-  }, [payroll, employeeId, defaultMonth, defaultYear, reset])
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, payroll, employeeId, defaultMonth, defaultYear])
 
   const watchedValues = watch()
   const totalEarnings =
@@ -195,23 +198,77 @@ export function PayrollForm({
 
   const onSubmit = async (data: PayrollFormData) => {
     try {
+      // Se tiver employee_id específico, processar apenas esse funcionário
+      // Caso contrário, buscar todos os funcionários ativos
+      let employeeIds: number[] = []
+      
+      if (data.employee_id) {
+        employeeIds = [data.employee_id]
+      } else {
+        // Buscar todos os funcionários ativos
+        const employees = await hrApi.getEmployees({ page_size: 1000, status: 'active' })
+        employeeIds = employees.results.map(emp => emp.id)
+      }
+
+      if (employeeIds.length === 0) {
+        throw new Error('No employees found to process payroll')
+      }
+
       // Payroll is read-only, so we process it instead
-      await hrApi.processPayroll({
+      const result = await hrApi.processPayroll({
+        employee_ids: employeeIds,
         month: data.month,
         year: data.year,
-        department_id: undefined,
       })
+      
+      const processedCount = result.processed?.length || 0
+      const errorCount = result.errors?.length || 0
+      
+      let description = t('payrollProcessed') || `Payroll processed for ${processedCount} employee(s)`
+      if (errorCount > 0) {
+        description += `. ${errorCount} error(s) occurred.`
+      }
+      
       toast({
         title: tCommon('success'),
-        description: t('payrollProcessed') || 'Payroll processed successfully',
+        description,
       })
       reset()
       onSuccess?.()
       onClose()
     } catch (error: any) {
+      // Tratar erros de validação do Django REST Framework
+      let errorMessage = tCommon('errorOccurred')
+      
+      if (error?.response?.data) {
+        const errorData = error.response.data
+        
+        // Se for um objeto de validação (DRF)
+        if (typeof errorData === 'object' && !errorData.detail && !errorData.error) {
+          // Coletar todas as mensagens de erro
+          const errorMessages: string[] = []
+          for (const [field, messages] of Object.entries(errorData)) {
+            if (Array.isArray(messages)) {
+              errorMessages.push(`${field}: ${messages.join(', ')}`)
+            } else if (typeof messages === 'string') {
+              errorMessages.push(`${field}: ${messages}`)
+            } else if (typeof messages === 'object') {
+              errorMessages.push(`${field}: ${JSON.stringify(messages)}`)
+            }
+          }
+          errorMessage = errorMessages.length > 0 
+            ? errorMessages.join('; ') 
+            : JSON.stringify(errorData)
+        } else {
+          errorMessage = errorData.error || errorData.detail || errorData.message || errorMessage
+        }
+      } else if (error?.message) {
+        errorMessage = error.message
+      }
+      
       toast({
         title: tCommon('error'),
-        description: error.response?.data?.detail || tCommon('error'),
+        description: errorMessage,
         variant: 'destructive',
       })
     }

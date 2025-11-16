@@ -1,6 +1,7 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
+import { useMemo } from 'react'
 import { DashboardLayout } from '@/components/layouts/DashboardLayout'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -20,9 +21,13 @@ import {
   BarChart3,
   PieChart,
   Briefcase,
+  Bell,
+  AlertCircle,
 } from 'lucide-react'
 import { Link } from '@/lib/i18n/navigation'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, Legend } from 'recharts'
+import { format } from 'date-fns'
+import { Badge } from '@/components/ui/badge'
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
 
@@ -43,19 +48,39 @@ export default function HRDashboardPage() {
     retry: false,
   })
 
-  // Calcular estatísticas
-  const totalEmployees = employeesData?.count || 0
-  const activeEmployees = employeesData?.results?.filter(emp => emp.status === 'active').length || 0
-  const onLeaveEmployees = employeesData?.results?.filter(emp => emp.status === 'on_leave').length || 0
-  const terminatedEmployees = employeesData?.results?.filter(emp => emp.status === 'terminated').length || 0
-  const totalDepartments = departmentsData?.count || 0
+  const { data: unreadNotificationsCount } = useQuery({
+    queryKey: ['hr', 'notifications', 'unread-count'],
+    queryFn: () => hrApi.getUnreadNotificationsCount(),
+    retry: false,
+  })
+
+  const { data: recentNotifications } = useQuery({
+    queryKey: ['hr', 'notifications', 'recent'],
+    queryFn: () => hrApi.getNotifications({ page_size: 5 }),
+    retry: false,
+  })
+
+  // Calcular estatísticas - otimizado com useMemo
+  const stats = useMemo(() => {
+    const employees = employeesData?.results || []
+    return {
+      totalEmployees: employeesData?.count || 0,
+      activeEmployees: employees.filter(emp => emp.status === 'active').length,
+      onLeaveEmployees: employees.filter(emp => emp.status === 'on_leave').length,
+      terminatedEmployees: employees.filter(emp => emp.status === 'terminated').length,
+      resignedEmployees: employees.filter(emp => emp.status === 'resigned').length,
+      totalDepartments: departmentsData?.count || 0,
+    }
+  }, [employeesData, departmentsData])
+  
+  const { totalEmployees, activeEmployees, onLeaveEmployees, terminatedEmployees, resignedEmployees, totalDepartments } = stats
 
   // Dados para gráfico de status
   const statusData = [
     { name: t('statuses.active'), value: activeEmployees },
     { name: t('statuses.on_leave'), value: onLeaveEmployees },
     { name: t('statuses.terminated'), value: terminatedEmployees },
-    { name: t('statuses.resigned'), value: employeesData?.results?.filter(emp => emp.status === 'resigned').length || 0 },
+    { name: t('statuses.resigned'), value: resignedEmployees },
   ]
 
   // Dados para gráfico de departamentos
@@ -126,6 +151,69 @@ export default function HRDashboardPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Notificações Recentes */}
+        {unreadNotificationsCount && unreadNotificationsCount.count > 0 && (
+          <Card className="border-yellow-200 dark:border-yellow-800 bg-yellow-50/50 dark:bg-yellow-900/10">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+                  <CardTitle className="text-yellow-900 dark:text-yellow-100">
+                    {t('pendingNotifications') || 'Pending Notifications'}
+                  </CardTitle>
+                </div>
+                <Badge variant="outline" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                  {unreadNotificationsCount.count} {t('unread') || 'unread'}
+                </Badge>
+              </div>
+              <CardDescription className="text-yellow-700 dark:text-yellow-300">
+                {t('pendingNotificationsDescription') || 'You have notifications that require your attention'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {recentNotifications && recentNotifications.results && recentNotifications.results.length > 0 ? (
+                <div className="space-y-2">
+                  {recentNotifications.results
+                    .filter(n => !n.is_read)
+                    .slice(0, 3)
+                    .map(notification => (
+                      <div
+                        key={notification.id}
+                        className="flex items-start gap-3 p-3 rounded-lg bg-white dark:bg-slate-900 border border-yellow-200 dark:border-yellow-800"
+                      >
+                        <div className="flex-shrink-0 mt-0.5">
+                          <Bell className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-yellow-900 dark:text-yellow-100">
+                            {notification.title}
+                          </p>
+                          <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1 line-clamp-2">
+                            {notification.message}
+                          </p>
+                          <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
+                            {format(new Date(notification.created_at), 'PPp')}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  {unreadNotificationsCount.count > 3 && (
+                    <Link href="/hr">
+                      <Button variant="outline" className="w-full mt-2">
+                        {t('viewAllNotifications') || 'View all notifications'} ({unreadNotificationsCount.count})
+                      </Button>
+                    </Link>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                  {t('noPendingNotifications') || 'No pending notifications'}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Atalhos Rápidos */}
         <Card>

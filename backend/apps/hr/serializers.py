@@ -141,13 +141,19 @@ class EmployeeSerializer(serializers.ModelSerializer):
         user_id = validated_data.pop('user_id', None)
         if user_id:
             from apps.users.models import User
-            validated_data['user'] = User.objects.get(id=user_id)
+            try:
+                validated_data['user'] = User.objects.get(id=user_id)
+            except User.DoesNotExist:
+                raise serializers.ValidationError(_('User not found'))
         
         # Process foreign key IDs
         department_id = validated_data.pop('department_id', None)
         if department_id is not None:
             if department_id:
-                validated_data['department'] = Department.objects.get(id=department_id)
+                try:
+                    validated_data['department'] = Department.objects.get(id=department_id)
+                except Department.DoesNotExist:
+                    raise serializers.ValidationError(_('Department not found'))
             else:
                 validated_data['department'] = None
         
@@ -155,14 +161,20 @@ class EmployeeSerializer(serializers.ModelSerializer):
         if job_position_id is not None:
             if job_position_id:
                 from .models import JobPosition
-                validated_data['job_position'] = JobPosition.objects.get(id=job_position_id)
+                try:
+                    validated_data['job_position'] = JobPosition.objects.get(id=job_position_id)
+                except JobPosition.DoesNotExist:
+                    raise serializers.ValidationError(_('Job position not found'))
             else:
                 validated_data['job_position'] = None
         
         supervisor_id = validated_data.pop('supervisor_id', None)
         if supervisor_id is not None:
             if supervisor_id:
-                validated_data['supervisor'] = Employee.objects.get(id=supervisor_id)
+                try:
+                    validated_data['supervisor'] = Employee.objects.get(id=supervisor_id)
+                except Employee.DoesNotExist:
+                    raise serializers.ValidationError(_('Supervisor not found'))
             else:
                 validated_data['supervisor'] = None
         
@@ -194,7 +206,10 @@ class EmployeeSerializer(serializers.ModelSerializer):
         if user_id is not None:  # Allow setting user_id to None to clear the user
             from apps.users.models import User
             if user_id:
-                validated_data['user'] = User.objects.get(id=user_id)
+                try:
+                    validated_data['user'] = User.objects.get(id=user_id)
+                except User.DoesNotExist:
+                    raise serializers.ValidationError(_('User not found'))
             else:
                 validated_data['user'] = None
         
@@ -202,14 +217,20 @@ class EmployeeSerializer(serializers.ModelSerializer):
         department_id = validated_data.pop('department_id', None)
         if department_id is not None:
             if department_id:
-                validated_data['department'] = Department.objects.get(id=department_id)
+                try:
+                    validated_data['department'] = Department.objects.get(id=department_id)
+                except Department.DoesNotExist:
+                    raise serializers.ValidationError(_('Department not found'))
             else:
                 validated_data['department'] = None
         
         supervisor_id = validated_data.pop('supervisor_id', None)
         if supervisor_id is not None:
             if supervisor_id:
-                validated_data['supervisor'] = Employee.objects.get(id=supervisor_id)
+                try:
+                    validated_data['supervisor'] = Employee.objects.get(id=supervisor_id)
+                except Employee.DoesNotExist:
+                    raise serializers.ValidationError(_('Supervisor not found'))
             else:
                 validated_data['supervisor'] = None
         
@@ -274,6 +295,19 @@ class EmployeeBenefitSerializer(serializers.ModelSerializer):
         if obj.employee and obj.employee.user:
             return obj.employee.user.get_full_name()
         return obj.employee.employee_number if obj.employee else None
+    
+    def validate(self, data):
+        """Validate employee benefit dates"""
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        
+        if start_date and end_date:
+            if start_date > end_date:
+                raise serializers.ValidationError({
+                    'end_date': _('End date must be after start date')
+                })
+        
+        return data
 
 
 class TimeRecordSerializer(serializers.ModelSerializer):
@@ -320,6 +354,19 @@ class VacationSerializer(serializers.ModelSerializer):
         if obj.employee and obj.employee.user:
             return obj.employee.user.get_full_name()
         return obj.employee.employee_number if obj.employee else None
+    
+    def validate(self, data):
+        """Validate vacation dates"""
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        
+        if start_date and end_date:
+            if start_date > end_date:
+                raise serializers.ValidationError({
+                    'end_date': _('End date must be after start date')
+                })
+        
+        return data
 
 
 class PerformanceReviewSerializer(serializers.ModelSerializer):
@@ -363,6 +410,19 @@ class TrainingSerializer(serializers.ModelSerializer):
             'is_active', 'created_at', 'updated_at'
         ]
         read_only_fields = ['created_at', 'updated_at']
+    
+    def validate(self, data):
+        """Validate training dates"""
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        
+        if start_date and end_date:
+            if start_date > end_date:
+                raise serializers.ValidationError({
+                    'end_date': _('End date must be after start date')
+                })
+        
+        return data
 
 
 class EmployeeTrainingSerializer(serializers.ModelSerializer):
@@ -386,6 +446,18 @@ class EmployeeTrainingSerializer(serializers.ModelSerializer):
         if obj.employee and obj.employee.user:
             return obj.employee.user.get_full_name()
         return obj.employee.employee_number if obj.employee else None
+    
+    def validate(self, data):
+        """Validate time record data"""
+        record_date = data.get('record_date')
+        record_time = data.get('record_time')
+        
+        if record_date and record_date > date.today():
+            raise serializers.ValidationError({
+                'record_date': _('Record date cannot be in the future')
+            })
+        
+        return data
 
 
 class JobOpeningSerializer(serializers.ModelSerializer):
@@ -403,6 +475,19 @@ class JobOpeningSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at'
         ]
         read_only_fields = ['created_at', 'updated_at', 'posted_date']
+    
+    def validate(self, data):
+        """Validate job opening dates"""
+        posted_date = data.get('posted_date')
+        closing_date = data.get('closing_date')
+        
+        if posted_date and closing_date:
+            if posted_date > closing_date:
+                raise serializers.ValidationError({
+                    'closing_date': _('Closing date must be after posted date')
+                })
+        
+        return data
 
 
 class CandidateSerializer(serializers.ModelSerializer):
@@ -424,6 +509,17 @@ class CandidateSerializer(serializers.ModelSerializer):
     
     def get_full_name(self, obj):
         return f"{obj.first_name} {obj.last_name}"
+    
+    def validate_email(self, value):
+        """Validate email format"""
+        if value:
+            from django.core.validators import validate_email
+            from django.core.exceptions import ValidationError as DjangoValidationError
+            try:
+                validate_email(value)
+            except DjangoValidationError:
+                raise serializers.ValidationError(_('Enter a valid email address'))
+        return value
 
 
 class PayrollSerializer(serializers.ModelSerializer):
@@ -446,6 +542,25 @@ class PayrollSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at', 'payroll_number',
             'total_earnings', 'total_deductions', 'net_salary'
         ]
+    
+    def validate(self, data):
+        """Validate payroll month and year"""
+        month = data.get('month')
+        year = data.get('year')
+        
+        if month is not None and (month < 1 or month > 12):
+            raise serializers.ValidationError({
+                'month': _('Month must be between 1 and 12')
+            })
+        
+        if year is not None:
+            current_year = date.today().year
+            if year < 2000 or year > current_year + 1:
+                raise serializers.ValidationError({
+                    'year': _('Year must be between 2000 and {max_year}').format(max_year=current_year + 1)
+                })
+        
+        return data
     
     def get_employee_name(self, obj):
         """Get employee name safely handling null user"""
@@ -474,6 +589,19 @@ class BankAccountSerializer(serializers.ModelSerializer):
         if obj.employee.user:
             return obj.employee.user.get_full_name()
         return obj.employee.employee_number
+    
+    def validate(self, data):
+        """Validate employee benefit dates"""
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        
+        if start_date and end_date:
+            if start_date > end_date:
+                raise serializers.ValidationError({
+                    'end_date': _('End date must be after start date')
+                })
+        
+        return data
 
 
 class DependentSerializer(serializers.ModelSerializer):
@@ -494,6 +622,25 @@ class DependentSerializer(serializers.ModelSerializer):
         if obj.employee.user:
             return obj.employee.user.get_full_name()
         return obj.employee.employee_number
+    
+    def validate(self, data):
+        """Validate work experience dates"""
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        is_current = data.get('is_current', False)
+        
+        if start_date and end_date and not is_current:
+            if start_date > end_date:
+                raise serializers.ValidationError({
+                    'end_date': _('End date must be after start date')
+                })
+        
+        if is_current and end_date:
+            raise serializers.ValidationError({
+                'end_date': _('End date should not be set for current work experience')
+            })
+        
+        return data
 
 
 class EducationSerializer(serializers.ModelSerializer):

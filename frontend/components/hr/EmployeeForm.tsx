@@ -13,6 +13,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogBody,
 } from '@/components/ui/dialog'
 import {
   Select,
@@ -28,9 +29,10 @@ import { Switch } from '@/components/ui/switch'
 import { Employee } from '@/types/api'
 import { hrApi } from '@/lib/api/hr'
 import { useToast } from '@/lib/hooks/use-toast'
-import { Loader2 } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
+import { Loader2, Upload, X, User } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import React, { useState } from 'react'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 
 // Schema expandido com todos os campos
 const employeeSchema = z.object({
@@ -106,8 +108,11 @@ export function EmployeeForm({ open, onClose, employee, onSuccess }: EmployeeFor
   const t = useTranslations('hr')
   const tCommon = useTranslations('common')
   const { toast } = useToast()
+  const queryClient = useQueryClient()
   const isEditing = !!employee
   const [activeTab, setActiveTab] = useState('professional')
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
 
   // Buscar dados para selects
   const { data: departments } = useQuery({
@@ -137,7 +142,7 @@ export function EmployeeForm({ open, onClose, employee, onSuccess }: EmployeeFor
           ssn: employee.ssn || '',
           rg: employee.rg || '',
           gender: employee.gender || undefined,
-          marital_status: (employee.marital_status as any) || undefined,
+          marital_status: employee.marital_status || undefined,
           nationality: employee.nationality || '',
           ethnicity: employee.ethnicity || '',
           has_disability: employee.has_disability || false,
@@ -203,7 +208,7 @@ export function EmployeeForm({ open, onClose, employee, onSuccess }: EmployeeFor
               ssn: employee.ssn || '',
               rg: employee.rg || '',
               gender: employee.gender || undefined,
-              marital_status: (employee.marital_status as any) || undefined,
+              marital_status: employee.marital_status || undefined,
               nationality: employee.nationality || '',
               ethnicity: employee.ethnicity || '',
               has_disability: employee.has_disability || false,
@@ -245,43 +250,215 @@ export function EmployeeForm({ open, onClose, employee, onSuccess }: EmployeeFor
             }
       )
       setActiveTab('professional')
+      // Reset photo state
+      setPhotoFile(null)
+      setPhotoPreview(employee?.photo_url || null)
     }
-  }, [open, employee, reset])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, employee])
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      // Validar tipo de arquivo
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: tCommon('error'),
+          description: t('invalidImageType') || 'Please upload an image file',
+          variant: 'destructive',
+        })
+        return
+      }
+      // Validar tamanho (máximo 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: tCommon('error'),
+          description: t('imageTooLarge') || 'File size must be less than 5MB',
+          variant: 'destructive',
+        })
+        return
+      }
+      setPhotoFile(file)
+      // Criar preview
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setPhotoPreview(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const removePhoto = () => {
+    setPhotoFile(null)
+    setPhotoPreview(null)
+  }
 
   const onSubmit = async (data: EmployeeFormData) => {
     try {
-      const submitData = {
-        ...data,
-        department_id: data.department_id ?? undefined,
-        supervisor_id: data.supervisor_id ?? undefined,
-        company_id: data.company_id ?? undefined,
-        job_position_id: data.job_position_id ?? undefined,
-        termination_date: data.termination_date ?? undefined,
-        commission_percent: data.commission_percent || undefined,
-        probation_period_days: data.probation_period_days ?? undefined,
-        probation_end_date: data.probation_end_date ?? undefined,
+      // Função auxiliar para criar/atualizar
+      const saveEmployee = async (payload: FormData | any) => {
+        if (isEditing && employee) {
+          await hrApi.updateEmployee(employee.id, payload)
+          toast({
+            title: tCommon('success'),
+            description: t('updateSuccess') || 'Employee updated successfully',
+          })
+        } else {
+          await hrApi.createEmployee(payload)
+          toast({
+            title: tCommon('success'),
+            description: t('createSuccess') || 'Employee created successfully',
+          })
+        }
       }
 
-      if (isEditing && employee) {
-        await hrApi.updateEmployee(employee.id, submitData)
-        toast({
-          title: tCommon('success'),
-          description: t('updateSuccess') || 'Employee updated successfully',
-        })
-      } else {
-        await hrApi.createEmployee(submitData)
-        toast({
-          title: tCommon('success'),
-          description: t('createSuccess') || 'Employee created successfully',
-        })
+      // Função para limpar valores vazios e converter tipos
+      const cleanValue = (value: any): any => {
+        if (value === '' || value === null || value === undefined) {
+          return undefined
+        }
+        return value
       }
+
+      // Se houver foto, usar FormData
+      if (photoFile) {
+        const formData = new FormData()
+        
+        // Adicionar todos os campos do formulário
+        if (data.user_id) formData.append('user_id', data.user_id.toString())
+        if (data.date_of_birth) formData.append('date_of_birth', data.date_of_birth)
+        if (data.cpf) formData.append('cpf', data.cpf)
+        if (data.ssn) formData.append('ssn', data.ssn)
+        if (data.rg) formData.append('rg', data.rg)
+        if (data.gender) formData.append('gender', data.gender)
+        if (data.marital_status) formData.append('marital_status', data.marital_status)
+        if (data.nationality) formData.append('nationality', data.nationality)
+        if (data.ethnicity) formData.append('ethnicity', data.ethnicity)
+        formData.append('has_disability', (data.has_disability || false).toString())
+        if (data.disability_description) formData.append('disability_description', data.disability_description)
+        if (data.address) formData.append('address', data.address)
+        if (data.city) formData.append('city', data.city)
+        if (data.state) formData.append('state', data.state)
+        if (data.zip_code) formData.append('zip_code', data.zip_code)
+        if (data.country) formData.append('country', data.country)
+        if (data.emergency_contact_name) formData.append('emergency_contact_name', data.emergency_contact_name)
+        if (data.emergency_contact_phone) formData.append('emergency_contact_phone', data.emergency_contact_phone)
+        if (data.emergency_contact_relation) formData.append('emergency_contact_relation', data.emergency_contact_relation)
+        if (data.job_position_id) formData.append('job_position_id', data.job_position_id.toString())
+        if (data.job_title) formData.append('job_title', data.job_title)
+        if (data.department_id) formData.append('department_id', data.department_id.toString())
+        if (data.supervisor_id) formData.append('supervisor_id', data.supervisor_id.toString())
+        formData.append('contract_type', data.contract_type)
+        formData.append('hire_type', data.hire_type)
+        if (data.company_id) formData.append('company_id', data.company_id.toString())
+        formData.append('hire_date', data.hire_date)
+        if (data.termination_date) formData.append('termination_date', data.termination_date)
+        if (data.probation_period_days) formData.append('probation_period_days', data.probation_period_days.toString())
+        if (data.probation_end_date) formData.append('probation_end_date', data.probation_end_date)
+        if (data.work_shift) formData.append('work_shift', data.work_shift)
+        if (data.weekly_hours) formData.append('weekly_hours', data.weekly_hours)
+        if (data.work_schedule_start) formData.append('work_schedule_start', data.work_schedule_start)
+        if (data.work_schedule_end) formData.append('work_schedule_end', data.work_schedule_end)
+        if (data.days_off) formData.append('days_off', data.days_off)
+        formData.append('base_salary', data.base_salary)
+        if (data.commission_percent) formData.append('commission_percent', data.commission_percent)
+        formData.append('status', data.status)
+
+        // Adicionar foto
+        formData.append('photo', photoFile)
+
+        await saveEmployee(formData)
+      } else {
+        // Sem foto, usar JSON normal - limpar campos vazios e converter tipos
+        const submitData: any = {
+          contract_type: data.contract_type,
+          hire_type: data.hire_type,
+          hire_date: data.hire_date,
+          base_salary: data.base_salary,
+          status: data.status,
+        }
+
+        // Campos opcionais - só adicionar se tiver valor
+        if (data.user_id) submitData.user_id = data.user_id
+        if (cleanValue(data.date_of_birth)) submitData.date_of_birth = data.date_of_birth
+        if (cleanValue(data.cpf)) submitData.cpf = data.cpf
+        if (cleanValue(data.ssn)) submitData.ssn = data.ssn
+        if (cleanValue(data.rg)) submitData.rg = data.rg
+        if (cleanValue(data.gender)) submitData.gender = data.gender
+        if (cleanValue(data.marital_status)) submitData.marital_status = data.marital_status
+        if (cleanValue(data.nationality)) submitData.nationality = data.nationality
+        if (cleanValue(data.ethnicity)) submitData.ethnicity = data.ethnicity
+        submitData.has_disability = data.has_disability || false
+        if (cleanValue(data.disability_description)) submitData.disability_description = data.disability_description
+        if (cleanValue(data.address)) submitData.address = data.address
+        if (cleanValue(data.city)) submitData.city = data.city
+        if (cleanValue(data.state)) submitData.state = data.state
+        if (cleanValue(data.zip_code)) submitData.zip_code = data.zip_code
+        if (cleanValue(data.country)) submitData.country = data.country
+        if (cleanValue(data.emergency_contact_name)) submitData.emergency_contact_name = data.emergency_contact_name
+        if (cleanValue(data.emergency_contact_phone)) submitData.emergency_contact_phone = data.emergency_contact_phone
+        if (cleanValue(data.emergency_contact_relation)) submitData.emergency_contact_relation = data.emergency_contact_relation
+        if (data.job_position_id) submitData.job_position_id = data.job_position_id
+        if (cleanValue(data.job_title)) submitData.job_title = data.job_title
+        if (data.department_id !== null && data.department_id !== undefined) submitData.department_id = data.department_id
+        if (data.supervisor_id !== null && data.supervisor_id !== undefined) submitData.supervisor_id = data.supervisor_id
+        if (data.company_id !== null && data.company_id !== undefined) submitData.company_id = data.company_id
+        if (cleanValue(data.termination_date)) submitData.termination_date = data.termination_date
+        if (data.probation_period_days !== null && data.probation_period_days !== undefined) {
+          submitData.probation_period_days = Number(data.probation_period_days)
+        }
+        if (cleanValue(data.probation_end_date)) submitData.probation_end_date = data.probation_end_date
+        if (cleanValue(data.work_shift)) submitData.work_shift = data.work_shift
+        if (cleanValue(data.weekly_hours)) submitData.weekly_hours = data.weekly_hours
+        if (cleanValue(data.work_schedule_start)) submitData.work_schedule_start = data.work_schedule_start
+        if (cleanValue(data.work_schedule_end)) submitData.work_schedule_end = data.work_schedule_end
+        if (cleanValue(data.days_off)) submitData.days_off = data.days_off
+        if (cleanValue(data.commission_percent)) {
+          submitData.commission_percent = data.commission_percent
+        }
+
+        await saveEmployee(submitData)
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['hr', 'employees'] })
       reset()
+      setPhotoFile(null)
+      setPhotoPreview(null)
       onSuccess?.()
       onClose()
     } catch (error: any) {
+      // Tratar erros de validação do Django REST Framework
+      let errorMessage = tCommon('errorOccurred')
+      
+      if (error?.response?.data) {
+        const errorData = error.response.data
+        
+        // Se for um objeto de validação (DRF)
+        if (typeof errorData === 'object' && !errorData.detail) {
+          // Coletar todas as mensagens de erro
+          const errorMessages: string[] = []
+          for (const [field, messages] of Object.entries(errorData)) {
+            if (Array.isArray(messages)) {
+              errorMessages.push(`${field}: ${messages.join(', ')}`)
+            } else if (typeof messages === 'string') {
+              errorMessages.push(`${field}: ${messages}`)
+            } else if (typeof messages === 'object') {
+              errorMessages.push(`${field}: ${JSON.stringify(messages)}`)
+            }
+          }
+          errorMessage = errorMessages.length > 0 
+            ? errorMessages.join('; ') 
+            : JSON.stringify(errorData)
+        } else {
+          errorMessage = errorData.detail || errorData.message || errorMessage
+        }
+      } else if (error?.message) {
+        errorMessage = error.message
+      }
+      
       toast({
         title: tCommon('error'),
-        description: error.response?.data?.detail || tCommon('error'),
+        description: errorMessage,
         variant: 'destructive',
       })
     }
@@ -289,7 +466,7 @@ export function EmployeeForm({ open, onClose, employee, onSuccess }: EmployeeFor
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col" size="large">
+      <DialogContent size="large">
         <DialogHeader>
           <DialogTitle>{isEditing ? t('edit') : t('new')}</DialogTitle>
           <DialogDescription>
@@ -297,22 +474,74 @@ export function EmployeeForm({ open, onClose, employee, onSuccess }: EmployeeFor
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="flex-1 flex flex-col overflow-hidden">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-            <TabsList className="grid w-full grid-cols-7">
-              <TabsTrigger value="personal">{t('personalInfo') || 'Personal'}</TabsTrigger>
-              <TabsTrigger value="address">{t('address') || 'Address'}</TabsTrigger>
-              <TabsTrigger value="contacts">{t('contacts') || 'Contacts'}</TabsTrigger>
-              <TabsTrigger value="professional">{t('professionalInfo')}</TabsTrigger>
-              <TabsTrigger value="contract">{t('contract') || 'Contract'}</TabsTrigger>
-              <TabsTrigger value="schedule">{t('workSchedule') || 'Schedule'}</TabsTrigger>
-              <TabsTrigger value="compensation">{t('compensation') || 'Compensation'}</TabsTrigger>
-            </TabsList>
+        <DialogBody className="p-0 flex-1 flex flex-col overflow-hidden">
+          <form onSubmit={handleSubmit(onSubmit)} className="flex-1 flex flex-col overflow-hidden">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
+              <div className="pt-4 pb-2 border-b border-slate-200 dark:border-slate-800 px-8 w-full">
+                <TabsList className="grid grid-cols-7 w-full" style={{ width: '100%' }}>
+                  <TabsTrigger value="personal">{t('personalInfo') || 'Personal'}</TabsTrigger>
+                  <TabsTrigger value="address">{t('address') || 'Address'}</TabsTrigger>
+                  <TabsTrigger value="contacts">{t('contacts') || 'Contacts'}</TabsTrigger>
+                  <TabsTrigger value="professional">{t('professionalInfo')}</TabsTrigger>
+                  <TabsTrigger value="contract">{t('contract') || 'Contract'}</TabsTrigger>
+                  <TabsTrigger value="schedule">{t('workSchedule') || 'Schedule'}</TabsTrigger>
+                  <TabsTrigger value="compensation">{t('compensation') || 'Compensation'}</TabsTrigger>
+                </TabsList>
+              </div>
 
-            <div className="flex-1 overflow-y-auto px-6 py-4">
+              <div className="flex-1 overflow-y-auto px-8 py-4">
               {/* Aba: Dados Pessoais */}
               <TabsContent value="personal" className="space-y-4 mt-4">
                 <h3 className="text-lg font-semibold mb-4">{t('personalInfo') || 'Personal Information'}</h3>
+                
+                {/* Upload de Foto */}
+                <div className="space-y-2 col-span-2 mb-6">
+                  <Label>{t('photo') || 'Photo'}</Label>
+                  <div className="flex items-center gap-4">
+                    <div className="relative">
+                      <Avatar className="h-24 w-24 border-2 border-slate-200 dark:border-slate-700">
+                        <AvatarImage src={photoPreview || employee?.photo_url} alt={t('employeePhoto') || 'Employee photo'} />
+                        <AvatarFallback className="bg-slate-100 dark:bg-slate-800">
+                          <User className="h-12 w-12 text-slate-400" />
+                        </AvatarFallback>
+                      </Avatar>
+                      {photoPreview && (
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
+                          onClick={removePhoto}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <Input
+                          id="photo"
+                          type="file"
+                          accept="image/*"
+                          onChange={handlePhotoChange}
+                          className="hidden"
+                        />
+                        <Label htmlFor="photo" className="cursor-pointer">
+                          <Button type="button" variant="outline" asChild>
+                            <span>
+                              <Upload className="mr-2 h-4 w-4" />
+                              {photoPreview || employee?.photo_url ? t('changePhoto') || 'Change Photo' : t('uploadPhoto') || 'Upload Photo'}
+                            </span>
+                          </Button>
+                        </Label>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {t('photoHint') || 'JPG, PNG or GIF. Max size 5MB'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="date_of_birth">{t('dateOfBirth') || 'Date of Birth'}</Label>
@@ -746,19 +975,20 @@ export function EmployeeForm({ open, onClose, employee, onSuccess }: EmployeeFor
                   </div>
                 </div>
               </TabsContent>
-            </div>
-          </Tabs>
+              </div>
+            </Tabs>
 
-          <DialogFooter className="mt-4 border-t pt-4">
-            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
-              {tCommon('cancel')}
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {tCommon('save')}
-            </Button>
-          </DialogFooter>
-        </form>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+                {tCommon('cancel')}
+              </Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {tCommon('save')}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogBody>
       </DialogContent>
     </Dialog>
   )

@@ -10,16 +10,36 @@ const Tabs = TabsPrimitive.Root
 const TabsList = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.List>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
->(({ className, ...props }, ref) => (
-  <TabsPrimitive.List
-    ref={ref}
-    className={cn(
-      'inline-flex h-11 items-center justify-center rounded-lg bg-slate-100 p-1 text-slate-500 dark:bg-slate-800 dark:text-slate-400',
-      className
-    )}
-    {...props}
-  />
-))
+>(({ className, ...props }, ref) => {
+  // Verificar se className contém 'grid' para não aplicar inline-flex
+  const classNameStr = typeof className === 'string' ? className : String(className || '')
+  const hasGrid = classNameStr.includes('grid')
+  
+  // Base classes
+  const baseClasses = 'h-11 items-center justify-center rounded-lg bg-slate-100 p-1 text-slate-500 dark:bg-slate-800 dark:text-slate-400 relative'
+  
+  // Se tem grid, não aplicar inline-flex - deixar o grid do className sobrescrever
+  // Se não tem grid, aplicar inline-flex
+  if (hasGrid) {
+    // Quando tem grid, aplicar apenas baseClasses e className (sem inline-flex)
+    return (
+      <TabsPrimitive.List
+        ref={ref}
+        className={cn(baseClasses, className)}
+        {...props}
+      />
+    )
+  }
+  
+  // Quando não tem grid, aplicar inline-flex normalmente
+  return (
+    <TabsPrimitive.List
+      ref={ref}
+      className={cn('inline-flex', baseClasses, className)}
+      {...props}
+    />
+  )
+})
 TabsList.displayName = TabsPrimitive.List.displayName
 
 const TabsTrigger = React.forwardRef<

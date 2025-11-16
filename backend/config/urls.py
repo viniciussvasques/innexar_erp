@@ -19,6 +19,8 @@ urlpatterns = [
         path('invoices/', include('apps.invoices.urls')),
         path('hr/', include('apps.hr.urls')),
         path('analytics/', include('apps.analytics.urls')),
+        path('tenants/', include('apps.tenants.urls')),  # Tenant-specific routes (onboarding, settings)
+        path('integrations/', include('apps.integrations.urls')),  # Integrations
     ])),
     
     # API Documentation

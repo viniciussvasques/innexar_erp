@@ -65,7 +65,7 @@ export default function JobPositionsPage() {
     onError: (error: any) => {
       toast({
         title: tCommon('error'),
-        description: error.response?.data?.detail || 'Failed to delete job position',
+        description: error?.response?.data?.detail || error?.message || tCommon('errorOccurred'),
         variant: 'destructive',
       })
     },

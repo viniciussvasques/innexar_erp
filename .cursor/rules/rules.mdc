@@ -4,7 +4,7 @@
 
 ### Missão
 
-Criar um **ERP SaaS Multi-Tenant World-Class** usando  Framework, competindo com líderes globais.
+Criar um **ERP SaaS Multi-Tenant World-Class** usando Framework, competindo com líderes globais.
 
 ### Arquitetura Escolhida
 
@@ -595,5 +595,96 @@ bench --site innexar.local clear-cache
 ---
 
 ## **⚠️ REGRA DE OURO:** Sempre verificar logs antes e depois de qualquer mudança!
+
+---
+
+## 🤖 MCP AUTO-MEMORY - OBRIGATÓRIO E MANDATORY
+
+### ⚠️ CRÍTICO: O uso do MCP (mcp-auto-memory) NÃO É OPCIONAL - É OBRIGATÓRIO!
+
+**O MCP DEVE ser usado em TODAS as conversas, SEM EXCEÇÃO. Não é uma sugestão, é uma REGRA.**
+
+### 🚫 NUNCA FAZER:
+
+- ❌ Responder sem buscar contexto do MCP
+- ❌ Criar código sem revisar com MCP
+- ❌ Ignorar o workflow MCP
+- ❌ Pular etapas do workflow MCP
+
+### ✅ SEMPRE FAZER:
+
+- ✅ Usar MCP em TODA conversa
+- ✅ Seguir workflow MCP completo
+- ✅ Salvar conversas automaticamente
+- ✅ Buscar contexto antes de responder
+- ✅ Revisar código antes de criar
+
+---
+
+## 🤖 WORKFLOW OBRIGATÓRIO MCP (mcp-auto-memory)
+
+### ⚠️ MANDATORY: Este workflow DEVE ser seguido em TODAS as conversas - SEM EXCEÇÃO
+
+#### 1. **INÍCIO DE CADA CONVERSA (SEMPRE fazer):**
+
+- ✅ Ler recurso `context://innexar_erp/auto` para contexto automático
+- ✅ Chamar `mcp_mcp-auto-memory_auto_context` para recuperar contexto mais relevante
+- ✅ Chamar `mcp_mcp-auto-memory_save_conversation` com `role: "user"` para salvar mensagem do usuário
+
+#### 2. **ANTES DE RESPONDER PERGUNTAS (SEMPRE fazer):**
+
+- ✅ Chamar `mcp_mcp-auto-memory_get_context` com query relacionada à pergunta do usuário
+- ✅ Se necessário, ler recursos relevantes (`context://innexar_erp/code_quality_guide`, `context://innexar_erp/project_context`, etc)
+
+#### 3. **ANTES DE CRIAR QUALQUER ARQUIVO/CÓDIGO (MANDATORY):**
+
+- ✅ Ler `context://innexar_erp/code_quality_guide`
+- ✅ Ler `context://innexar_erp/project_context`
+- ✅ Chamar `mcp_mcp-auto-memory_get_development_guidelines`
+- ✅ Gerar código
+- ✅ Chamar `mcp_mcp-auto-memory_validate_all_layers` (validação completa)
+- ✅ Chamar `mcp_mcp-auto-memory_review_code` (OBRIGATÓRIO)
+- ✅ Chamar `mcp_mcp-auto-memory_validate_code_patterns`
+- ✅ Chamar `mcp_mcp-auto-memory_get_contextual_suggestions`
+- ✅ Corrigir problemas encontrados
+- ✅ SOMENTE DEPOIS criar o arquivo
+
+#### 4. **FINAL DE CADA RESPOSTA (SEMPRE fazer):**
+
+- ✅ Chamar `mcp_mcp-auto-memory_save_conversation` com `role: "assistant"` para salvar minha resposta
+
+### 📚 Recursos MCP Disponíveis (usar quando necessário):
+
+- `context://innexar_erp/auto` - Contexto mais importante (ler sempre no início)
+- `context://innexar_erp/recent` - Memórias recentes
+- `context://innexar_erp/critical` - Memórias críticas
+- `context://innexar_erp/conversations` - Histórico de conversas
+- `context://innexar_erp/dashboard` - Estatísticas do projeto
+- `context://innexar_erp/code_quality_guide` - Guia de qualidade (OBRIGATÓRIO antes de criar código)
+- `context://innexar_erp/project_context` - Contexto específico do projeto
+- `context://innexar_erp/learned_patterns` - Padrões aprendidos
+- `context://innexar_erp/quality_metrics` - Métricas de qualidade
+- `context://innexar_erp/complete_guide` - Guia completo de todas as ferramentas
+
+### ⚠️ REGRAS CRÍTICAS (VIOLAÇÃO = ERRO GRAVE):
+
+- **🚫 NUNCA criar arquivos sem revisar código primeiro com MCP**
+- **✅ SEMPRE salvar conversas no início e fim (OBRIGATÓRIO)**
+- **✅ SEMPRE buscar contexto antes de responder (OBRIGATÓRIO)**
+- **✅ SEMPRE seguir este workflow completo (NÃO É OPCIONAL)**
+- **🚫 NUNCA pular etapas do workflow MCP**
+- **✅ SEMPRE usar ferramentas MCP disponíveis quando apropriado**
+
+### 📋 CHECKLIST OBRIGATÓRIO (verificar em cada resposta):
+
+- [ ] Li `context://innexar_erp/auto` no início?
+- [ ] Chamei `auto_context`?
+- [ ] Salvei mensagem do usuário com `save_conversation`?
+- [ ] Chamei `get_context` antes de responder?
+- [ ] Se criando código: revisei com `review_code`?
+- [ ] Se criando código: validei com `validate_all_layers`?
+- [ ] Salvei minha resposta com `save_conversation` no final?
+
+---
 
 ## alwaysApply: true

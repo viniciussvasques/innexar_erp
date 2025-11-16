@@ -64,7 +64,7 @@ export default function DepartmentsPage() {
     onError: (error: any) => {
       toast({
         title: tCommon('error'),
-        description: error.response?.data?.detail || 'Failed to delete department',
+        description: error?.response?.data?.detail || error?.message || tCommon('errorOccurred'),
         variant: 'destructive',
       })
     },

@@ -24,6 +24,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useDebounce } from '@/lib/hooks/use-debounce'
 import { Badge } from '@/components/ui/badge'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { AdvancedFilters, FilterOption } from '@/components/hr/AdvancedFilters'
 
 export default function EmployeesPage() {
   const t = useTranslations('hr')
@@ -38,19 +40,65 @@ export default function EmployeesPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
+  const [filters, setFilters] = useState<Record<string, string | number | undefined>>({
+    status: undefined,
+    department_id: undefined,
+  })
 
   const debouncedSearch = useDebounce(searchTerm, 300)
 
+  // Buscar departamentos para o filtro
+  const { data: departmentsData } = useQuery({
+    queryKey: ['hr', 'departments', 'filter'],
+    queryFn: () => hrApi.getDepartments({ active_only: true, page_size: 1000 }),
+  })
+
+  const filterOptions: FilterOption[] = [
+    {
+      key: 'status',
+      label: t('status'),
+      type: 'select',
+      options: [
+        { value: 'active', label: t('statuses.active') || 'Active' },
+        { value: 'on_leave', label: t('statuses.on_leave') || 'On Leave' },
+        { value: 'terminated', label: t('statuses.terminated') || 'Terminated' },
+        { value: 'resigned', label: t('statuses.resigned') || 'Resigned' },
+      ],
+    },
+    {
+      key: 'department_id',
+      label: t('department'),
+      type: 'select',
+      options:
+        departmentsData?.results?.map(dept => ({
+          value: dept.id.toString(),
+          label: dept.name,
+        })) || [],
+    },
+  ]
+
   const { data, isLoading, error } = useQuery({
-    queryKey: ['hr', 'employees', page, pageSize, debouncedSearch],
+    queryKey: ['hr', 'employees', page, pageSize, debouncedSearch, filters],
     queryFn: () =>
       hrApi.getEmployees({
         page,
         page_size: pageSize,
         search: debouncedSearch || undefined,
+        status: filters.status as string | undefined,
+        department_id: filters.department_id ? Number(filters.department_id) : undefined,
       }),
     retry: false, // Não tentar novamente em caso de 404
   })
+
+  const handleFilterChange = (key: string, value: string | number | undefined) => {
+    setFilters(prev => ({ ...prev, [key]: value }))
+    setPage(1)
+  }
+
+  const handleClearFilters = () => {
+    setFilters({ status: undefined, department_id: undefined })
+    setPage(1)
+  }
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => hrApi.deleteEmployee(id),
@@ -66,7 +114,7 @@ export default function EmployeesPage() {
     onError: (error: any) => {
       toast({
         title: tCommon('error'),
-        description: error.response?.data?.detail || 'Failed to delete employee',
+        description: error?.response?.data?.detail || error?.message || tCommon('errorOccurred'),
         variant: 'destructive',
       })
     },
@@ -115,11 +163,19 @@ export default function EmployeesPage() {
           ? `${employee.user.first_name || ''} ${employee.user.last_name || ''}`.trim() || employee.user.email
           : 'N/A'
         return (
-          <div>
-            <div className="font-medium">{userName}</div>
-            {employee.job_title && (
-              <div className="text-sm text-muted-foreground">{employee.job_title}</div>
-            )}
+          <div className="flex items-center gap-3">
+            <Avatar className="h-10 w-10 border border-slate-200 dark:border-slate-700">
+              <AvatarImage src={employee.photo_url} alt={userName} />
+              <AvatarFallback className="bg-slate-100 dark:bg-slate-800">
+                {userName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'N/A'}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <div className="font-medium">{userName}</div>
+              {employee.job_title && (
+                <div className="text-sm text-muted-foreground">{employee.job_title}</div>
+              )}
+            </div>
           </div>
         )
       },
@@ -221,6 +277,12 @@ export default function EmployeesPage() {
                     className="pl-10 w-64"
                   />
                 </div>
+                <AdvancedFilters
+                  filters={filterOptions}
+                  values={filters}
+                  onChange={handleFilterChange}
+                  onClear={handleClearFilters}
+                />
               </div>
             </div>
           </CardHeader>

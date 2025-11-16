@@ -8,6 +8,17 @@ from .models import Employee, EmployeeHistory, Vacation, Payroll
 from .notifications import notify_payroll_processed, notify_vacation_request
 
 
+def get_old_department(dept_id):
+    """Função auxiliar para obter departamento antigo"""
+    if dept_id:
+        try:
+            from .models import Department
+            return Department.objects.get(pk=dept_id)
+        except Department.DoesNotExist:
+            return None
+    return None
+
+
 @receiver(pre_save, sender=Employee)
 def track_employee_changes(sender, instance, **kwargs):
     """
@@ -16,7 +27,7 @@ def track_employee_changes(sender, instance, **kwargs):
     """
     if instance.pk:  # Only for updates, not new instances
         try:
-            old_instance = Employee.objects.get(pk=instance.pk)
+            old_instance = Employee.objects.select_related('department', 'job_position', 'supervisor__user').get(pk=instance.pk)
             instance._old_values = {
                 'job_title': old_instance.job_title,
                 'job_position': old_instance.job_position_id,
@@ -63,15 +74,7 @@ def create_employee_history(sender, instance, created, **kwargs):
             # Check if it's a promotion (could be enhanced with level comparison)
             change_type = 'promotion'
         
-        # Get old department if exists
-        old_dept_id = old_values.get('department')
-        old_dept = None
-        if old_dept_id:
-            try:
-                from .models import Department
-                old_dept = Department.objects.get(pk=old_dept_id)
-            except Department.DoesNotExist:
-                pass
+        old_dept = get_old_department(old_values.get('department'))
         
         EmployeeHistory.objects.create(
             employee=instance,
@@ -102,15 +105,7 @@ def create_employee_history(sender, instance, created, **kwargs):
     
     # Track department changes
     if old_values.get('department') != instance.department_id:
-        # Get old department if exists
-        old_dept_id = old_values.get('department')
-        old_dept = None
-        if old_dept_id:
-            try:
-                from .models import Department
-                old_dept = Department.objects.get(pk=old_dept_id)
-            except Department.DoesNotExist:
-                pass
+        old_dept = get_old_department(old_values.get('department'))
         
         EmployeeHistory.objects.create(
             employee=instance,

@@ -13,6 +13,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogBody,
 } from '@/components/ui/dialog'
 import {
   Select,
@@ -105,14 +106,13 @@ export function VacationForm({ open, onClose, vacation, employeeId, onSuccess }:
     enabled: !!selectedEmployeeId && !vacation,
   })
 
+  // Combinar useEffects para otimizar
   useEffect(() => {
     if (balanceData) {
       setVacationBalance(balanceData)
     }
-  }, [balanceData])
-
-  // Calculate days
-  useEffect(() => {
+    
+    // Calcular dias quando datas mudarem
     if (startDate && endDate) {
       try {
         const start = new Date(startDate)
@@ -123,7 +123,7 @@ export function VacationForm({ open, onClose, vacation, employeeId, onSuccess }:
         setCalculatedDays(0)
       }
     }
-  }, [startDate, endDate])
+  }, [balanceData, startDate, endDate])
 
   React.useEffect(() => {
     if (vacation) {
@@ -155,21 +155,31 @@ export function VacationForm({ open, onClose, vacation, employeeId, onSuccess }:
         cash_allowance: false,
       })
     }
-  }, [vacation, employeeId, reset])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vacation, employeeId])
 
   const onSubmit = async (data: VacationFormData) => {
     try {
+      // Calcular dias automaticamente
+      let days = 0
+      if (data.start_date && data.end_date) {
+        const start = new Date(data.start_date)
+        const end = new Date(data.end_date)
+        days = differenceInDays(end, start) + 1
+        if (days < 0) days = 0
+      }
+
       const payload: any = {
-        employee: data.employee_id,
+        employee: data.employee_id, // Backend espera 'employee', não 'employee_id'
         status: 'requested',
         start_date: data.start_date,
         end_date: data.end_date,
+        days: days, // Calcular e enviar dias
         acquisition_period_start: data.acquisition_period_start,
         acquisition_period_end: data.acquisition_period_end,
+        sell_days: data.sell_days || 0,
+        cash_allowance: data.cash_allowance || false,
       }
-
-      if (data.sell_days) payload.sell_days = data.sell_days
-      if (data.cash_allowance) payload.cash_allowance = data.cash_allowance
 
       if (vacation) {
         await hrApi.updateVacation(vacation.id, payload)
@@ -189,9 +199,38 @@ export function VacationForm({ open, onClose, vacation, employeeId, onSuccess }:
       onSuccess?.()
       onClose()
     } catch (error: any) {
+      // Tratar erros de validação do Django REST Framework
+      let errorMessage = tCommon('errorOccurred')
+      
+      if (error?.response?.data) {
+        const errorData = error.response.data
+        
+        // Se for um objeto de validação (DRF)
+        if (typeof errorData === 'object' && !errorData.detail) {
+          // Coletar todas as mensagens de erro
+          const errorMessages: string[] = []
+          for (const [field, messages] of Object.entries(errorData)) {
+            if (Array.isArray(messages)) {
+              errorMessages.push(`${field}: ${messages.join(', ')}`)
+            } else if (typeof messages === 'string') {
+              errorMessages.push(`${field}: ${messages}`)
+            } else if (typeof messages === 'object') {
+              errorMessages.push(`${field}: ${JSON.stringify(messages)}`)
+            }
+          }
+          errorMessage = errorMessages.length > 0 
+            ? errorMessages.join('; ') 
+            : JSON.stringify(errorData)
+        } else {
+          errorMessage = errorData.detail || errorData.message || errorMessage
+        }
+      } else if (error?.message) {
+        errorMessage = error.message
+      }
+      
       toast({
         title: tCommon('error'),
-        description: error.response?.data?.detail || tCommon('error'),
+        description: errorMessage,
         variant: 'destructive',
       })
     }
@@ -199,7 +238,7 @@ export function VacationForm({ open, onClose, vacation, employeeId, onSuccess }:
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent size="large">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
@@ -212,8 +251,8 @@ export function VacationForm({ open, onClose, vacation, employeeId, onSuccess }:
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="flex-1 flex flex-col overflow-hidden">
-          <div className="flex-1 overflow-y-auto px-1 py-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col min-h-0">
+          <DialogBody>
             {/* Vacation Balance Card */}
             {vacationBalance && !vacation && (
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
@@ -241,148 +280,150 @@ export function VacationForm({ open, onClose, vacation, employeeId, onSuccess }:
 
             <div className="space-y-6">
               <div className="grid gap-4 md:grid-cols-2">
-            {/* Employee */}
-            {!employeeId && (
-              <div className="space-y-2">
-                <Label htmlFor="employee_id">
-                  {t('employee')} <span className="text-red-500">*</span>
-                </Label>
+                {/* Employee */}
+                {!employeeId && (
+                  <div className="space-y-2">
+                    <Label htmlFor="employee_id">
+                      {t('employee')} <span className="text-red-500">*</span>
+                    </Label>
+                    <Controller
+                      name="employee_id"
+                      control={control}
+                      render={({ field }) => (
+                        <Select
+                          value={field.value ? field.value.toString() : 'none'}
+                          onValueChange={value => {
+                            field.onChange(value === 'none' ? undefined : parseInt(value))
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={t('selectEmployee') || 'Select employee'} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">{t('selectEmployee') || 'Select employee'}</SelectItem>
+                            {employees?.results?.map(emp => {
+                              const userName = emp.user
+                                ? `${emp.user.first_name || ''} ${emp.user.last_name || ''}`.trim() || emp.user.email
+                                : emp.employee_number
+                              return (
+                                <SelectItem key={emp.id} value={emp.id.toString()}>
+                                  {userName} ({emp.employee_number})
+                                </SelectItem>
+                              )
+                            })}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                    {errors.employee_id && (
+                      <p className="text-sm text-red-500">{errors.employee_id.message}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Start Date */}
+                <div className="space-y-2">
+                  <Label htmlFor="start_date">
+                    {t('startDate')} <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="start_date"
+                    type="date"
+                    {...register('start_date')}
+                    className={errors.start_date ? 'border-red-500' : ''}
+                  />
+                  {errors.start_date && (
+                    <p className="text-sm text-red-500">{errors.start_date.message}</p>
+                  )}
+                </div>
+
+                {/* End Date */}
+                <div className="space-y-2">
+                  <Label htmlFor="end_date">
+                    {t('endDate')} <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="end_date"
+                    type="date"
+                    {...register('end_date')}
+                    className={errors.end_date ? 'border-red-500' : ''}
+                  />
+                  {errors.end_date && (
+                    <p className="text-sm text-red-500">{errors.end_date.message}</p>
+                  )}
+                  {calculatedDays > 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      {t('calculatedDays') || 'Calculated'}: {calculatedDays} {t('days') || 'days'}
+                    </p>
+                  )}
+                </div>
+
+                {/* Acquisition Period Start */}
+                <div className="space-y-2">
+                  <Label htmlFor="acquisition_period_start">
+                    {t('acquisitionPeriodStart') || 'Acquisition Period Start'} <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="acquisition_period_start"
+                    type="date"
+                    {...register('acquisition_period_start')}
+                    className={errors.acquisition_period_start ? 'border-red-500' : ''}
+                  />
+                  {errors.acquisition_period_start && (
+                    <p className="text-sm text-red-500">{errors.acquisition_period_start.message}</p>
+                  )}
+                </div>
+
+                {/* Acquisition Period End */}
+                <div className="space-y-2">
+                  <Label htmlFor="acquisition_period_end">
+                    {t('acquisitionPeriodEnd') || 'Acquisition Period End'} <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="acquisition_period_end"
+                    type="date"
+                    {...register('acquisition_period_end')}
+                    className={errors.acquisition_period_end ? 'border-red-500' : ''}
+                  />
+                  {errors.acquisition_period_end && (
+                    <p className="text-sm text-red-500">{errors.acquisition_period_end.message}</p>
+                  )}
+                </div>
+
+                {/* Sell Days */}
+                <div className="space-y-2">
+                  <Label htmlFor="sell_days">{t('sellDays') || 'Sell Days'} ({t('optional')})</Label>
+                  <Input
+                    id="sell_days"
+                    type="number"
+                    min="0"
+                    {...register('sell_days', { valueAsNumber: true })}
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+
+              {/* Cash Allowance */}
+              <div className="space-y-2 flex items-center gap-2 pt-6">
                 <Controller
-                  name="employee_id"
+                  name="cash_allowance"
                   control={control}
                   render={({ field }) => (
-                    <Select
-                      value={field.value?.toString() || 'none'}
-                      onValueChange={value => field.onChange(value === 'none' ? null : parseInt(value))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder={t('selectEmployee') || 'Select employee'} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">{t('selectEmployee') || 'Select employee'}</SelectItem>
-                        {employees?.results.map(emp => {
-                          const userName = emp.user
-                            ? `${emp.user.first_name || ''} ${emp.user.last_name || ''}`.trim() || emp.user.email
-                            : emp.employee_number
-                          return (
-                            <SelectItem key={emp.id} value={emp.id.toString()}>
-                              {userName} ({emp.employee_number})
-                            </SelectItem>
-                          )
-                        })}
-                      </SelectContent>
-                    </Select>
+                    <Switch
+                      id="cash_allowance"
+                      checked={field.value || false}
+                      onCheckedChange={field.onChange}
+                    />
                   )}
                 />
-                {errors.employee_id && (
-                  <p className="text-sm text-red-500">{errors.employee_id.message}</p>
-                )}
-              </div>
-            )}
-
-            {/* Start Date */}
-            <div className="space-y-2">
-              <Label htmlFor="start_date">
-                {t('startDate')} <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="start_date"
-                type="date"
-                {...register('start_date')}
-                className={errors.start_date ? 'border-red-500' : ''}
-              />
-              {errors.start_date && (
-                <p className="text-sm text-red-500">{errors.start_date.message}</p>
-              )}
-            </div>
-
-            {/* End Date */}
-            <div className="space-y-2">
-              <Label htmlFor="end_date">
-                {t('endDate')} <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="end_date"
-                type="date"
-                {...register('end_date')}
-                className={errors.end_date ? 'border-red-500' : ''}
-              />
-              {errors.end_date && (
-                <p className="text-sm text-red-500">{errors.end_date.message}</p>
-              )}
-              {calculatedDays > 0 && (
-                <p className="text-sm text-muted-foreground">
-                  {t('calculatedDays') || 'Calculated'}: {calculatedDays} {t('days') || 'days'}
-                </p>
-              )}
-            </div>
-
-            {/* Acquisition Period Start */}
-            <div className="space-y-2">
-              <Label htmlFor="acquisition_period_start">
-                {t('acquisitionPeriodStart') || 'Acquisition Period Start'} <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="acquisition_period_start"
-                type="date"
-                {...register('acquisition_period_start')}
-                className={errors.acquisition_period_start ? 'border-red-500' : ''}
-              />
-              {errors.acquisition_period_start && (
-                <p className="text-sm text-red-500">{errors.acquisition_period_start.message}</p>
-              )}
-            </div>
-
-            {/* Acquisition Period End */}
-            <div className="space-y-2">
-              <Label htmlFor="acquisition_period_end">
-                {t('acquisitionPeriodEnd') || 'Acquisition Period End'} <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="acquisition_period_end"
-                type="date"
-                {...register('acquisition_period_end')}
-                className={errors.acquisition_period_end ? 'border-red-500' : ''}
-              />
-              {errors.acquisition_period_end && (
-                <p className="text-sm text-red-500">{errors.acquisition_period_end.message}</p>
-              )}
-            </div>
-
-            {/* Sell Days */}
-            <div className="space-y-2">
-              <Label htmlFor="sell_days">{t('sellDays') || 'Sell Days'} ({t('optional')})</Label>
-              <Input
-                id="sell_days"
-                type="number"
-                min="0"
-                {...register('sell_days', { valueAsNumber: true })}
-                placeholder="0"
-              />
-            </div>
-
-            {/* Cash Allowance */}
-            <div className="space-y-2 flex items-center gap-2 pt-6">
-              <Controller
-                name="cash_allowance"
-                control={control}
-                render={({ field }) => (
-                  <Switch
-                    id="cash_allowance"
-                    checked={field.value || false}
-                    onCheckedChange={field.onChange}
-                  />
-                )}
-              />
-              <Label htmlFor="cash_allowance" className="cursor-pointer">
-                {t('cashAllowance') || 'Cash Allowance'}
-              </Label>
-            </div>
+                <Label htmlFor="cash_allowance" className="cursor-pointer">
+                  {t('cashAllowance') || 'Cash Allowance'}
+                </Label>
               </div>
             </div>
-          </div>
+          </DialogBody>
 
-          <DialogFooter className="mt-4">
+          <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
               {tCommon('cancel')}
             </Button>
@@ -396,4 +437,3 @@ export function VacationForm({ open, onClose, vacation, employeeId, onSuccess }:
     </Dialog>
   )
 }
-

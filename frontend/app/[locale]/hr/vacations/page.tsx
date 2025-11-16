@@ -15,12 +15,17 @@ import { ColumnDef } from '@tanstack/react-table'
 import { Badge } from '@/components/ui/badge'
 import { format } from 'date-fns'
 import { VacationForm } from '@/components/hr/VacationForm'
+import { ApprovalDialog } from '@/components/hr/ApprovalDialog'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { AdvancedFilters, FilterOption } from '@/components/hr/AdvancedFilters'
+import { Input } from '@/components/ui/input'
+import { Search } from 'lucide-react'
 
 export default function VacationsPage() {
   const t = useTranslations('hr')
@@ -33,16 +38,70 @@ export default function VacationsPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [selectedVacation, setSelectedVacation] = useState<Vacation | null>(null)
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | undefined>()
+  const [approvalDialogOpen, setApprovalDialogOpen] = useState(false)
+  const [approvalType, setApprovalType] = useState<'approve' | 'reject'>('approve')
+  const [vacationToApprove, setVacationToApprove] = useState<Vacation | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [vacationToDelete, setVacationToDelete] = useState<Vacation | null>(null)
+  const [filters, setFilters] = useState<Record<string, string | number | undefined>>({
+    status: undefined,
+    employee_id: undefined,
+  })
+
+  // Buscar funcionários para o filtro
+  const { data: employeesData } = useQuery({
+    queryKey: ['hr', 'employees', 'filter'],
+    queryFn: () => hrApi.getEmployees({ status: 'active', page_size: 1000 }),
+  })
+
+  const filterOptions: FilterOption[] = [
+    {
+      key: 'status',
+      label: t('status'),
+      type: 'select',
+      options: [
+        { value: 'requested', label: t('statuses.requested') || 'Requested' },
+        { value: 'approved', label: t('statuses.approved') || 'Approved' },
+        { value: 'rejected', label: t('statuses.rejected') || 'Rejected' },
+        { value: 'taken', label: t('statuses.taken') || 'Taken' },
+        { value: 'cancelled', label: t('statuses.cancelled') || 'Cancelled' },
+      ],
+    },
+    {
+      key: 'employee_id',
+      label: t('employee'),
+      type: 'select',
+      options:
+        employeesData?.results?.map(emp => ({
+          value: emp.id.toString(),
+          label: emp.user
+            ? `${emp.user.first_name || ''} ${emp.user.last_name || ''}`.trim() || emp.user.email
+            : emp.employee_number,
+        })) || [],
+    },
+  ]
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['hr', 'vacations', page, pageSize],
+    queryKey: ['hr', 'vacations', page, pageSize, filters],
     queryFn: () =>
       hrApi.getVacations({
         page,
         page_size: pageSize,
+        status: filters.status as string | undefined,
+        employee: filters.employee_id ? Number(filters.employee_id) : undefined,
       }),
     retry: false,
   })
+
+  const handleFilterChange = (key: string, value: string | number | undefined) => {
+    setFilters(prev => ({ ...prev, [key]: value }))
+    setPage(1)
+  }
+
+  const handleClearFilters = () => {
+    setFilters({ status: undefined, employee_id: undefined })
+    setPage(1)
+  }
 
   const approveMutation = useMutation({
     mutationFn: (id: number) => hrApi.approveVacation(id),
@@ -56,37 +115,52 @@ export default function VacationsPage() {
     onError: (error: any) => {
       toast({
         title: tCommon('error'),
-        description: error.response?.data?.detail || 'Failed to approve vacation',
+        description: error?.response?.data?.detail || error?.message || tCommon('errorOccurred'),
         variant: 'destructive',
       })
     },
   })
 
   const rejectMutation = useMutation({
-    mutationFn: (id: number) => hrApi.rejectVacation(id),
+    mutationFn: ({ id, reason }: { id: number; reason?: string }) => hrApi.rejectVacation(id, reason),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['hr', 'vacations'] })
       toast({
         title: tCommon('success'),
         description: t('vacationRejected') || 'Vacation rejected',
       })
+      setApprovalDialogOpen(false)
+      setVacationToApprove(null)
     },
     onError: (error: any) => {
       toast({
         title: tCommon('error'),
-        description: error.response?.data?.detail || 'Failed to reject vacation',
+        description: error?.response?.data?.detail || error?.message || tCommon('errorOccurred'),
         variant: 'destructive',
       })
     },
   })
 
-  const handleApprove = (id: number) => {
-    approveMutation.mutate(id)
+  const handleApprove = (vacation: Vacation) => {
+    setVacationToApprove(vacation)
+    setApprovalType('approve')
+    setApprovalDialogOpen(true)
   }
 
-  const handleReject = (id: number) => {
-    const reason = prompt(t('rejectionReason') || 'Rejection reason (optional):')
-    rejectMutation.mutate(id, { onSuccess: () => {} })
+  const handleReject = (vacation: Vacation) => {
+    setVacationToApprove(vacation)
+    setApprovalType('reject')
+    setApprovalDialogOpen(true)
+  }
+
+  const confirmApproval = (reason?: string) => {
+    if (vacationToApprove) {
+      if (approvalType === 'approve') {
+        approveMutation.mutate(vacationToApprove.id)
+      } else {
+        rejectMutation.mutate({ id: vacationToApprove.id, reason })
+      }
+    }
   }
 
   const deleteMutation = useMutation({
@@ -101,15 +175,20 @@ export default function VacationsPage() {
     onError: (error: any) => {
       toast({
         title: tCommon('error'),
-        description: error.response?.data?.detail || 'Failed to delete vacation',
+        description: error?.response?.data?.detail || error?.message || tCommon('errorOccurred'),
         variant: 'destructive',
       })
     },
   })
 
-  const handleDelete = (id: number) => {
-    if (confirm(tCommon('confirm.deleteConfirm') || 'Are you sure you want to delete this vacation?')) {
-      deleteMutation.mutate(id)
+  const handleDelete = (vacation: Vacation) => {
+    setVacationToDelete(vacation)
+    setDeleteDialogOpen(true)
+  }
+
+  const confirmDelete = () => {
+    if (vacationToDelete) {
+      deleteMutation.mutate(vacationToDelete.id)
     }
   }
 
@@ -213,15 +292,15 @@ export default function VacationsPage() {
               {vacation.status === 'requested' && (
                 <>
                   <DropdownMenuItem
-                    onClick={() => handleApprove(vacation.id)}
-                    disabled={approveMutation.isPending}
+                    onClick={() => handleApprove(vacation)}
+                    disabled={approveMutation.isPending || rejectMutation.isPending}
                   >
                     <CheckCircle className="mr-2 h-4 w-4" />
                     {t('approve') || 'Approve'}
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() => handleReject(vacation.id)}
-                    disabled={rejectMutation.isPending}
+                    onClick={() => handleReject(vacation)}
+                    disabled={approveMutation.isPending || rejectMutation.isPending}
                     className="text-red-600"
                   >
                     <XCircle className="mr-2 h-4 w-4" />
@@ -234,7 +313,7 @@ export default function VacationsPage() {
                 {tCommon('edit')}
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => handleDelete(vacation.id)}
+                onClick={() => handleDelete(vacation)}
                 className="text-red-600"
               >
                 <Trash2 className="mr-2 h-4 w-4" />
@@ -263,7 +342,17 @@ export default function VacationsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>{t('vacations')}</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>{t('vacations')}</CardTitle>
+              <div className="flex items-center gap-2">
+                <AdvancedFilters
+                  filters={filterOptions}
+                  values={filters}
+                  onChange={handleFilterChange}
+                  onClear={handleClearFilters}
+                />
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -321,6 +410,51 @@ export default function VacationsPage() {
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ['hr', 'vacations'] })
           }}
+        />
+
+        <ApprovalDialog
+          open={approvalDialogOpen}
+          onClose={() => {
+            setApprovalDialogOpen(false)
+            setVacationToApprove(null)
+          }}
+          type={approvalType}
+          title={
+            approvalType === 'approve'
+              ? t('approveVacation') || 'Approve Vacation'
+              : t('rejectVacation') || 'Reject Vacation'
+          }
+          description={
+            approvalType === 'approve'
+              ? t('approveVacationDescription') ||
+                'Are you sure you want to approve this vacation request?'
+              : t('rejectVacationDescription') ||
+                'Please provide a reason for rejecting this vacation request.'
+          }
+          onConfirm={confirmApproval}
+          isLoading={approveMutation.isPending || rejectMutation.isPending}
+          requireReason={approvalType === 'reject'}
+        />
+
+        <ConfirmDialog
+          open={deleteDialogOpen}
+          onClose={() => {
+            setDeleteDialogOpen(false)
+            setVacationToDelete(null)
+          }}
+          onConfirm={confirmDelete}
+          title={tCommon('confirmDelete') || 'Confirm Delete'}
+          description={
+            vacationToDelete
+              ? t('deleteVacationConfirm') ||
+                'Are you sure you want to delete this vacation? This action cannot be undone.'
+              : t('deleteVacationConfirmGeneric') ||
+                'Are you sure you want to delete this vacation?'
+          }
+          confirmText={tCommon('delete')}
+          cancelText={tCommon('cancel')}
+          variant="destructive"
+          isLoading={deleteMutation.isPending}
         />
       </div>
     </DashboardLayout>

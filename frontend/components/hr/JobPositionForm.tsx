@@ -77,7 +77,7 @@ export function JobPositionForm({ open, onClose, jobPosition, onSuccess }: JobPo
       ? {
           code: jobPosition.code,
           name: jobPosition.name,
-          department_id: jobPosition.department_id || 0,
+          department_id: jobPosition.department_id || (departments?.results?.[0]?.id || 0),
           level: jobPosition.level,
           salary_min: jobPosition.salary_min || '',
           salary_max: jobPosition.salary_max || '',
@@ -89,7 +89,7 @@ export function JobPositionForm({ open, onClose, jobPosition, onSuccess }: JobPo
       : {
           code: '',
           name: '',
-          department_id: 0,
+          department_id: departments?.results?.[0]?.id || 0,
           level: 'junior',
           salary_min: '',
           salary_max: '',
@@ -102,12 +102,13 @@ export function JobPositionForm({ open, onClose, jobPosition, onSuccess }: JobPo
 
   React.useEffect(() => {
     if (open) {
+      const defaultDepartmentId = departments?.results?.[0]?.id
       reset(
         jobPosition
           ? {
               code: jobPosition.code,
               name: jobPosition.name,
-              department_id: jobPosition.department_id || 0,
+              department_id: jobPosition.department_id || defaultDepartmentId || 0,
               level: jobPosition.level,
               salary_min: jobPosition.salary_min || '',
               salary_max: jobPosition.salary_max || '',
@@ -119,7 +120,7 @@ export function JobPositionForm({ open, onClose, jobPosition, onSuccess }: JobPo
           : {
               code: '',
               name: '',
-              department_id: 0,
+              department_id: defaultDepartmentId || 0,
               level: 'junior',
               salary_min: '',
               salary_max: '',
@@ -130,16 +131,33 @@ export function JobPositionForm({ open, onClose, jobPosition, onSuccess }: JobPo
             }
       )
     }
-  }, [open, jobPosition, reset])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, jobPosition, departments])
 
   const onSubmit = async (data: JobPositionFormData) => {
     try {
-      const submitData = {
-        ...data,
-        department_id: data.department_id || undefined,
-        salary_min: data.salary_min ? parseFloat(data.salary_min) : undefined,
-        salary_max: data.salary_max ? parseFloat(data.salary_max) : undefined,
+      // Função para limpar valores vazios
+      const cleanValue = (value: any): any => {
+        if (value === '' || value === null || value === undefined) {
+          return undefined
+        }
+        return value
       }
+
+      const submitData: any = {
+        code: data.code,
+        name: data.name,
+        department: data.department_id, // Backend espera 'department', não 'department_id'
+        level: data.level,
+        is_active: data.is_active,
+      }
+
+      // Campos opcionais - só adicionar se tiver valor
+      if (cleanValue(data.salary_min)) submitData.salary_min = data.salary_min
+      if (cleanValue(data.salary_max)) submitData.salary_max = data.salary_max
+      if (cleanValue(data.description)) submitData.description = data.description
+      if (cleanValue(data.requirements)) submitData.requirements = data.requirements
+      if (cleanValue(data.responsibilities)) submitData.responsibilities = data.responsibilities
 
       if (isEditing && jobPosition) {
         await hrApi.updateJobPosition(jobPosition.id, submitData)
@@ -157,9 +175,38 @@ export function JobPositionForm({ open, onClose, jobPosition, onSuccess }: JobPo
       onSuccess?.()
       onClose()
     } catch (error: any) {
+      // Tratar erros de validação do Django REST Framework
+      let errorMessage = tCommon('errorOccurred')
+      
+      if (error?.response?.data) {
+        const errorData = error.response.data
+        
+        // Se for um objeto de validação (DRF)
+        if (typeof errorData === 'object' && !errorData.detail) {
+          // Coletar todas as mensagens de erro
+          const errorMessages: string[] = []
+          for (const [field, messages] of Object.entries(errorData)) {
+            if (Array.isArray(messages)) {
+              errorMessages.push(`${field}: ${messages.join(', ')}`)
+            } else if (typeof messages === 'string') {
+              errorMessages.push(`${field}: ${messages}`)
+            } else if (typeof messages === 'object') {
+              errorMessages.push(`${field}: ${JSON.stringify(messages)}`)
+            }
+          }
+          errorMessage = errorMessages.length > 0 
+            ? errorMessages.join('; ') 
+            : JSON.stringify(errorData)
+        } else {
+          errorMessage = errorData.detail || errorData.message || errorMessage
+        }
+      } else if (error?.message) {
+        errorMessage = error.message
+      }
+      
       toast({
         title: tCommon('error'),
-        description: error.response?.data?.detail || error.message || 'Failed to save job position',
+        description: errorMessage,
         variant: 'destructive',
       })
     }
@@ -213,14 +260,13 @@ export function JobPositionForm({ open, onClose, jobPosition, onSuccess }: JobPo
                   control={control}
                   render={({ field }) => (
                     <Select
-                      value={field.value?.toString() || 'none'}
-                      onValueChange={value => field.onChange(value === 'none' ? null : parseInt(value))}
+                      value={field.value?.toString() || ''}
+                      onValueChange={value => field.onChange(parseInt(value))}
                     >
                       <SelectTrigger className={errors.department_id ? 'border-red-500' : ''}>
                         <SelectValue placeholder={t('selectDepartment') || 'Select department'} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">{t('none') || 'None'}</SelectItem>
                         {departments?.results.map(dept => (
                           <SelectItem key={dept.id} value={dept.id.toString()}>
                             {dept.name}

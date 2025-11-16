@@ -62,6 +62,7 @@ SHARED_APPS = [
 TENANT_APPS = [
     # Tenant-specific apps
     'django.contrib.contenttypes',
+    'apps.integrations',  # Integrations app,
     'django.contrib.auth',
     'django.contrib.sessions',
     'django.contrib.messages',
@@ -268,6 +269,12 @@ ANYMAIL = {
     'RESEND_API_KEY': env('RESEND_API_KEY', default=''),
 }
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='noreply@innexar.com')
+
+# QuickBooks Integration
+QUICKBOOKS_CLIENT_ID = env('QUICKBOOKS_CLIENT_ID', default='')
+QUICKBOOKS_CLIENT_SECRET = env('QUICKBOOKS_CLIENT_SECRET', default='')
+QUICKBOOKS_REDIRECT_URI = env('QUICKBOOKS_REDIRECT_URI', default='http://localhost:3000/settings?tab=integrations')
+QUICKBOOKS_SANDBOX = env('QUICKBOOKS_SANDBOX', default=True)
 
 # Logging
 LOGGING = {

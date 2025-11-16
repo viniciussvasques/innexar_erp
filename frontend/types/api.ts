@@ -730,3 +730,19 @@ export interface EmployeeHistory {
   effective_date: string
   created_at?: string
 }
+
+export interface HRNotification {
+  id: number
+  employee?: Employee
+  employee_id?: number
+  employee_name?: string
+  employee_number?: string
+  notification_type: 'vacation_expiring' | 'vacation_balance_low' | 'document_expiring' | 'time_record_pending' | 'vacation_request' | 'payroll_processed' | 'other'
+  notification_type_display?: string
+  title: string
+  message: string
+  is_read: boolean
+  read_at?: string
+  action_url?: string
+  created_at: string
+}

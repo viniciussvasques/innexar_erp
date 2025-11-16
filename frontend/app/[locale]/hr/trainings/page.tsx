@@ -7,22 +7,37 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { DataTable } from '@/components/ui/data-table'
-import { GraduationCap, Search, Plus } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
+import { GraduationCap, Search, Plus, Edit, Trash2, MoreVertical } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { hrApi } from '@/lib/api/hr'
 import { Training } from '@/types/api'
 import { ColumnDef } from '@tanstack/react-table'
 import { useDebounce } from '@/lib/hooks/use-debounce'
 import { Badge } from '@/components/ui/badge'
 import { format } from 'date-fns'
+import { TrainingForm } from '@/components/hr/TrainingForm'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { useToast } from '@/lib/hooks/use-toast'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 export default function TrainingsPage() {
   const t = useTranslations('hr')
   const tCommon = useTranslations('common')
+  const { toast } = useToast()
+  const queryClient = useQueryClient()
 
   const [searchTerm, setSearchTerm] = useState('')
   const [page, setPage] = useState(1)
   const [pageSize] = useState(50)
+  const [isFormOpen, setIsFormOpen] = useState(false)
+  const [selectedTraining, setSelectedTraining] = useState<Training | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [trainingToDelete, setTrainingToDelete] = useState<Training | null>(null)
 
   const debouncedSearch = useDebounce(searchTerm, 300)
 
@@ -36,6 +51,43 @@ export default function TrainingsPage() {
       }),
     retry: false,
   })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => hrApi.deleteTraining(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hr', 'trainings'] })
+      toast({
+        title: tCommon('success'),
+        description: t('deleteTrainingSuccess') || 'Training deleted successfully',
+      })
+      setDeleteDialogOpen(false)
+      setTrainingToDelete(null)
+    },
+    onError: (error: any) => {
+      toast({
+        title: tCommon('error'),
+        description:
+          error?.response?.data?.detail || error?.message || tCommon('errorOccurred'),
+        variant: 'destructive',
+      })
+    },
+  })
+
+  const handleDelete = (training: Training) => {
+    setTrainingToDelete(training)
+    setDeleteDialogOpen(true)
+  }
+
+  const confirmDelete = () => {
+    if (trainingToDelete) {
+      deleteMutation.mutate(trainingToDelete.id)
+    }
+  }
+
+  const handleEdit = (training: Training) => {
+    setSelectedTraining(training)
+    setIsFormOpen(true)
+  }
 
   const columns: ColumnDef<Training>[] = [
     {
@@ -94,6 +146,34 @@ export default function TrainingsPage() {
         </Badge>
       ),
     },
+    {
+      id: 'actions',
+      cell: ({ row }) => {
+        const training = row.original
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleEdit(training)}>
+                <Edit className="mr-2 h-4 w-4" />
+                {tCommon('edit')}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleDelete(training)}
+                className="text-red-600"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                {tCommon('delete')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )
+      },
+    },
   ]
 
   return (
@@ -125,6 +205,15 @@ export default function TrainingsPage() {
                     className="pl-10 w-64"
                   />
                 </div>
+                <Button
+                  onClick={() => {
+                    setSelectedTraining(null)
+                    setIsFormOpen(true)
+                  }}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  {t('newTraining') || 'New Training'}
+                </Button>
               </div>
             </div>
           </CardHeader>
@@ -171,6 +260,39 @@ export default function TrainingsPage() {
             )}
           </CardContent>
         </Card>
+
+        <TrainingForm
+          open={isFormOpen}
+          onClose={() => {
+            setIsFormOpen(false)
+            setSelectedTraining(null)
+          }}
+          training={selectedTraining || undefined}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['hr', 'trainings'] })
+          }}
+        />
+
+        <ConfirmDialog
+          open={deleteDialogOpen}
+          onClose={() => {
+            setDeleteDialogOpen(false)
+            setTrainingToDelete(null)
+          }}
+          onConfirm={confirmDelete}
+          title={tCommon('confirmDelete') || 'Confirm Delete'}
+          description={
+            trainingToDelete
+              ? t('deleteTrainingConfirm', { name: trainingToDelete.name }) ||
+                `Are you sure you want to delete ${trainingToDelete.name}? This action cannot be undone.`
+              : t('deleteTrainingConfirmGeneric') ||
+                'Are you sure you want to delete this training? This action cannot be undone.'
+          }
+          confirmText={tCommon('delete')}
+          cancelText={tCommon('cancel')}
+          variant="destructive"
+          isLoading={deleteMutation.isPending}
+        />
       </div>
     </DashboardLayout>
   )

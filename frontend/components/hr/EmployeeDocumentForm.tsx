@@ -82,7 +82,7 @@ export function EmployeeDocumentForm({
     resolver: zodResolver(documentSchema),
     defaultValues: document
       ? {
-          document_type: document.document_type as any,
+          document_type: document.document_type,
           name: document.name,
           description: document.description || '',
           expiry_date: document.expiry_date
@@ -104,7 +104,7 @@ export function EmployeeDocumentForm({
       reset(
         document
           ? {
-              document_type: document.document_type as any,
+              document_type: document.document_type,
               name: document.name,
               description: document.description || '',
               expiry_date: document.expiry_date
@@ -123,7 +123,8 @@ export function EmployeeDocumentForm({
       setSelectedFile(null)
       setUploadProgress(0)
     }
-  }, [open, document, reset])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, document])
 
   const onSubmit = async (data: DocumentFormData) => {
     try {
@@ -175,7 +176,7 @@ export function EmployeeDocumentForm({
     } catch (error: any) {
       toast({
         title: tCommon('error'),
-        description: error.response?.data?.detail || tCommon('error'),
+        description: error?.response?.data?.detail || error?.message || tCommon('errorOccurred'),
         variant: 'destructive',
       })
     }

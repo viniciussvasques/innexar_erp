@@ -27,9 +27,12 @@ def calculate_overtime_hours(employee, year, month):
     normal_hours = TimeRecord.calculate_monthly_hours(employee, year, month)
     
     # Horas esperadas no mês (baseado na jornada do funcionário)
+    # Cálculo correto: semanas no mês (~4.33) * horas semanais
     # Padrão: 220 horas/mês (44h/semana) ou 200h/mês (40h/semana)
     weekly_hours = Decimal(str(employee.weekly_hours)) if employee.weekly_hours else Decimal('44.00')
-    expected_monthly_hours = (weekly_hours / Decimal('7')) * Decimal('30')  # Aproximação
+    # Média de semanas no mês: 365.25 dias / 12 meses / 7 dias = ~4.348 semanas
+    weeks_per_month = Decimal('4.348')
+    expected_monthly_hours = weekly_hours * weeks_per_month
     
     # Calcular horas extras
     overtime_hours = max(Decimal('0.00'), normal_hours - expected_monthly_hours)
@@ -206,10 +209,12 @@ def calculate_payroll_totals(payroll):
     )
     
     # Total de descontos
+    # NOTA: FGTS não é descontado do funcionário, é pago pela empresa
+    # O campo payroll.fgts armazena o valor que a empresa deve depositar
     total_deductions = (
         payroll.inss +
         payroll.irrf +
-        payroll.fgts +  # FGTS é descontado do funcionário em alguns casos
+        # payroll.fgts removido - FGTS é obrigação da empresa, não desconto do funcionário
         payroll.transportation +
         payroll.meal_voucher +
         payroll.loans +

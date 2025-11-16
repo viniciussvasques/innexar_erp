@@ -13,6 +13,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogBody,
 } from '@/components/ui/dialog'
 import {
   Select,
@@ -108,7 +109,8 @@ export function ContractForm({
             }
       )
     }
-  }, [open, contract, reset])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, contract])
 
   const onSubmit = async (data: ContractFormData) => {
     try {
@@ -145,9 +147,12 @@ export function ContractForm({
               title: tCommon('success'),
               description: t('contractPDFGenerated') || 'Contract PDF generated successfully',
             })
-          } catch (pdfError) {
-            console.error('Error generating PDF:', pdfError)
-            // Don't show error, PDF generation is optional
+          } catch (pdfError: any) {
+            // Log error silently - PDF generation is optional
+            // In production, use proper logging service instead of console.error
+            if (process.env.NODE_ENV === 'development') {
+              console.error('Error generating PDF:', pdfError)
+            }
           }
         }
       }
@@ -157,7 +162,7 @@ export function ContractForm({
     } catch (error: any) {
       toast({
         title: tCommon('error'),
-        description: error.response?.data?.detail || error.response?.data?.error || tCommon('error'),
+        description: error?.response?.data?.detail || error?.message || tCommon('errorOccurred'),
         variant: 'destructive',
       })
     } finally {
@@ -179,7 +184,7 @@ export function ContractForm({
     } catch (error: any) {
       toast({
         title: tCommon('error'),
-        description: error.response?.data?.detail || error.response?.data?.error || tCommon('error'),
+        description: error?.response?.data?.detail || error?.message || tCommon('errorOccurred'),
         variant: 'destructive',
       })
     } finally {
@@ -189,7 +194,7 @@ export function ContractForm({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent size="medium">
         <DialogHeader>
           <DialogTitle>
             {isEditing
@@ -203,9 +208,8 @@ export function ContractForm({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="flex-1 flex flex-col overflow-hidden">
-          <div className="flex-1 overflow-y-auto px-1 py-4">
-            <div className="space-y-4">
+        <DialogBody>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="contract_type">{t('contractType')}</Label>
             <Controller
@@ -274,22 +278,20 @@ export function ContractForm({
                 {isGenerating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {t('generatePDF') || 'Generate PDF'}
               </Button>
-              </div>
-            )}
-
             </div>
-          </div>
+          )}
 
-          <DialogFooter className="mt-4">
-            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting || isGenerating}>
-              {tCommon('cancel')}
-            </Button>
-            <Button type="submit" disabled={isSubmitting || isGenerating}>
-              {(isSubmitting || isGenerating) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isEditing ? tCommon('update') : t('generate') || 'Generate'}
-            </Button>
-          </DialogFooter>
-        </form>
+          <DialogFooter>
+              <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting || isGenerating}>
+                {tCommon('cancel')}
+              </Button>
+              <Button type="submit" disabled={isSubmitting || isGenerating}>
+                {(isSubmitting || isGenerating) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isEditing ? tCommon('update') : t('generate') || 'Generate'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogBody>
       </DialogContent>
     </Dialog>
   )

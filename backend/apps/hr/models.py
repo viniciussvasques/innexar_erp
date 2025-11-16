@@ -374,17 +374,21 @@ class Employee(models.Model):
     def save(self, *args, **kwargs):
         # Gerar employee_number automaticamente se não existir
         if not self.employee_number:
+            # Usar select_for_update para evitar race condition
             # Formato: EMP-000001
-            last_employee = Employee.objects.order_by('-id').first()
-            if last_employee and last_employee.employee_number:
-                try:
-                    last_number = int(last_employee.employee_number.split('-')[-1])
-                    next_number = last_number + 1
-                except (ValueError, IndexError):
+            from django.db import transaction
+            with transaction.atomic():
+                # Lock na última linha para evitar concorrência
+                last_employee = Employee.objects.select_for_update().order_by('-id').first()
+                if last_employee and last_employee.employee_number:
+                    try:
+                        last_number = int(last_employee.employee_number.split('-')[-1])
+                        next_number = last_number + 1
+                    except (ValueError, IndexError):
+                        next_number = 1
+                else:
                     next_number = 1
-            else:
-                next_number = 1
-            self.employee_number = f"EMP-{next_number:06d}"
+                self.employee_number = f"EMP-{next_number:06d}"
         super().save(*args, **kwargs)
     
     def get_vacation_balance(self, reference_date=None):
@@ -402,19 +406,16 @@ class Employee(models.Model):
         periods = months_worked // 12
         acquired_days = min(periods * 30, 30)  # Máximo 30 dias
         
-        # Férias já tiradas
-        taken_days = Vacation.objects.filter(
+        # Férias já tiradas e vendidas - otimizado em uma única query
+        vacation_stats = Vacation.objects.filter(
             employee=self,
-            status__in=['approved', 'taken'],
-            start_date__lte=reference_date
-        ).aggregate(total=models.Sum('days'))['total'] or 0
-        
-        # Férias vendidas
-        sold_days = Vacation.objects.filter(
-            employee=self,
-            status__in=['approved', 'taken'],
-            sell_days__gt=0
-        ).aggregate(total=models.Sum('sell_days'))['total'] or 0
+            status__in=['approved', 'taken']
+        ).aggregate(
+            taken_days=models.Sum('days', filter=models.Q(start_date__lte=reference_date)),
+            sold_days=models.Sum('sell_days', filter=models.Q(sell_days__gt=0))
+        )
+        taken_days = vacation_stats['taken_days'] or 0
+        sold_days = vacation_stats['sold_days'] or 0
         
         # Saldo disponível
         balance = acquired_days - taken_days - sold_days
@@ -981,10 +982,22 @@ class Vacation(models.Model):
         result = calculate_vacation_balance(self.employee, self.start_date)
         return result['balance_days']
     
+    def clean(self):
+        """Validação de dados antes de salvar"""
+        if self.start_date and self.end_date:
+            if self.start_date > self.end_date:
+                from django.core.exceptions import ValidationError
+                raise ValidationError({
+                    'end_date': _('End date must be after start date')
+                })
+    
     def save(self, *args, **kwargs):
         """
         Auto-calcula dias de férias antes de salvar
         """
+        # Validar antes de salvar
+        self.clean()
+        
         # Calcular número de dias automaticamente
         if self.start_date and self.end_date:
             delta = self.end_date - self.start_date

@@ -7,13 +7,22 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { DataTable } from '@/components/ui/data-table'
-import { Award, Search, Plus } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
+import { Award, Search, Plus, Edit, Trash2, MoreVertical } from 'lucide-react'
+import { BenefitForm } from '@/components/hr/BenefitForm'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { hrApi } from '@/lib/api/hr'
 import { Benefit } from '@/types/api'
 import { ColumnDef } from '@tanstack/react-table'
 import { useDebounce } from '@/lib/hooks/use-debounce'
 import { Badge } from '@/components/ui/badge'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { useToast } from '@/lib/hooks/use-toast'
 
 export default function BenefitsPage() {
   const t = useTranslations('hr')
@@ -22,6 +31,12 @@ export default function BenefitsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [page, setPage] = useState(1)
   const [pageSize] = useState(50)
+  const [isFormOpen, setIsFormOpen] = useState(false)
+  const [selectedBenefit, setSelectedBenefit] = useState<Benefit | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [benefitToDelete, setBenefitToDelete] = useState<Benefit | null>(null)
+  const { toast } = useToast()
+  const queryClient = useQueryClient()
 
   const debouncedSearch = useDebounce(searchTerm, 300)
 
@@ -34,6 +49,45 @@ export default function BenefitsPage() {
       }),
     retry: false,
   })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => hrApi.deleteBenefit(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hr', 'benefits'] })
+      toast({
+        title: tCommon('success'),
+        description: t('deleteBenefitSuccess') || 'Benefit deleted successfully',
+      })
+      setDeleteDialogOpen(false)
+      setBenefitToDelete(null)
+    },
+    onError: (error: any) => {
+      toast({
+        title: tCommon('error'),
+        description:
+          error?.response?.data?.detail ||
+          error?.message ||
+          tCommon('errorOccurred'),
+        variant: 'destructive',
+      })
+    },
+  })
+
+  const handleDelete = (benefit: Benefit) => {
+    setBenefitToDelete(benefit)
+    setDeleteDialogOpen(true)
+  }
+
+  const confirmDelete = () => {
+    if (benefitToDelete) {
+      deleteMutation.mutate(benefitToDelete.id)
+    }
+  }
+
+  const handleEdit = (benefit: Benefit) => {
+    setSelectedBenefit(benefit)
+    setIsFormOpen(true)
+  }
 
   const columns: ColumnDef<Benefit>[] = [
     {
@@ -89,6 +143,34 @@ export default function BenefitsPage() {
         </Badge>
       ),
     },
+    {
+      id: 'actions',
+      cell: ({ row }) => {
+        const benefit = row.original
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleEdit(benefit)}>
+                <Edit className="mr-2 h-4 w-4" />
+                {tCommon('edit')}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleDelete(benefit)}
+                className="text-red-600"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                {tCommon('delete')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )
+      },
+    },
   ]
 
   return (
@@ -118,6 +200,15 @@ export default function BenefitsPage() {
                     className="pl-10 w-64"
                   />
                 </div>
+                <Button
+                  onClick={() => {
+                    setSelectedBenefit(null)
+                    setIsFormOpen(true)
+                  }}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  {t('newBenefit') || 'New Benefit'}
+                </Button>
               </div>
             </div>
           </CardHeader>
@@ -164,6 +255,36 @@ export default function BenefitsPage() {
             )}
           </CardContent>
         </Card>
+
+        <BenefitForm
+          open={isFormOpen}
+          onClose={() => {
+            setIsFormOpen(false)
+            setSelectedBenefit(null)
+          }}
+          benefit={selectedBenefit}
+        />
+
+        <ConfirmDialog
+          open={deleteDialogOpen}
+          onClose={() => {
+            setDeleteDialogOpen(false)
+            setBenefitToDelete(null)
+          }}
+          onConfirm={confirmDelete}
+          title={tCommon('confirmDelete') || 'Confirm Delete'}
+          description={
+            benefitToDelete
+              ? t('deleteBenefitConfirm', { name: benefitToDelete.name }) ||
+                `Are you sure you want to delete ${benefitToDelete.name}? This action cannot be undone.`
+              : t('deleteBenefitConfirmGeneric') ||
+                'Are you sure you want to delete this benefit? This action cannot be undone.'
+          }
+          confirmText={tCommon('delete')}
+          cancelText={tCommon('cancel')}
+          variant="destructive"
+          isLoading={deleteMutation.isPending}
+        />
       </div>
     </DashboardLayout>
   )

@@ -49,12 +49,22 @@ def check_document_expiry():
     for document in expiring_documents:
         days_until_expiry = (document.expiry_date - today).days
         
+        from django.utils.translation import gettext_lazy as _
+        
         if days_until_expiry <= 7:
-            title = f"Documento vencendo em {days_until_expiry} dias"
-            message = f"O documento '{document.name}' ({document.get_document_type_display()}) vence em {days_until_expiry} dias."
+            title = _("Document expiring in {days} days").format(days=days_until_expiry)
+            message = _("The document '{name}' ({type}) expires in {days} days.").format(
+                name=document.name,
+                type=document.get_document_type_display(),
+                days=days_until_expiry
+            )
         else:
-            title = f"Documento próximo ao vencimento"
-            message = f"O documento '{document.name}' ({document.get_document_type_display()}) vence em {days_until_expiry} dias."
+            title = _("Document nearing expiration")
+            message = _("The document '{name}' ({type}) expires in {days} days.").format(
+                name=document.name,
+                type=document.get_document_type_display(),
+                days=days_until_expiry
+            )
         
         action_url = f"/hr/employees/{document.employee.id}/documents"
         

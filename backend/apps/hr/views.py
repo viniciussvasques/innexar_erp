@@ -29,11 +29,18 @@ from .notifications import (
     check_pending_time_records,
     run_all_notification_checks,
 )
+from .helpers import (
+    get_language_from_request,
+    get_departments_with_fallback,
+    get_job_positions_with_fallback,
+    get_benefits_with_fallback,
+)
 
 
 class DepartmentViewSet(viewsets.ModelViewSet):
     """
     ViewSet for Department management
+    Uses hardcoded data as fallback if database is empty
     """
     queryset = Department.objects.select_related('manager__user').all()
     serializer_class = DepartmentSerializer
@@ -45,11 +52,72 @@ class DepartmentViewSet(viewsets.ModelViewSet):
     filterset_fields = ['is_active', 'manager']
     ordering_fields = ['name', 'created_at']
     ordering = ['name']
+    
+    def list(self, request, *args, **kwargs):
+        """List departments with fallback to hardcoded data"""
+        # Try to get from database first
+        try:
+            response = super().list(request, *args, **kwargs)
+            # If we have results, return them
+            if response.data.get('results') or response.data.get('count', 0) > 0:
+                return response
+        except Exception:
+            # Database error, will use fallback
+            pass
+        
+        # Fallback to hardcoded data
+        lang = get_language_from_request(request)
+        active_only = request.query_params.get('active_only') == 'true'
+        departments = get_departments_with_fallback(lang, active_only)
+        
+        # Convert to serializer format
+        from rest_framework.pagination import PageNumberPagination
+        paginator = PageNumberPagination()
+        paginator.page_size = request.query_params.get('page_size', 100)
+        
+        page = paginator.paginate_queryset(departments, request)
+        if page is not None:
+            # Serialize hardcoded data
+            serialized = []
+            for dept in page:
+                serialized.append({
+                    'id': dept.get('id'),
+                    'code': dept['code'],
+                    'name': dept['name'],
+                    'description': dept['description'],
+                    'is_active': dept['is_active'],
+                    'manager': None,
+                    'created_at': None,
+                    'updated_at': None,
+                })
+            return paginator.get_paginated_response(serialized)
+        
+        # No pagination
+        serialized = [
+            {
+                'id': dept.get('id'),
+                'code': dept['code'],
+                'name': dept['name'],
+                'description': dept['description'],
+                'is_active': dept['is_active'],
+                'manager': None,
+                'created_at': None,
+                'updated_at': None,
+            }
+            for dept in departments
+        ]
+        return Response({
+            'count': len(serialized),
+            'next': None,
+            'previous': None,
+            'results': serialized
+        })
 
 
 class JobPositionViewSet(viewsets.ModelViewSet):
     """
     ViewSet for Job Position management
+    Uses hardcoded data as fallback if database is empty
     """
     queryset = JobPosition.objects.select_related('department').all()
     serializer_class = JobPositionSerializer
@@ -67,6 +135,80 @@ class JobPositionViewSet(viewsets.ModelViewSet):
         if self.request.query_params.get('active_only') == 'true':
             queryset = queryset.filter(is_active=True)
         return queryset
+    
+    def list(self, request, *args, **kwargs):
+        """List job positions with fallback to hardcoded data"""
+        # Try to get from database first
+        try:
+            response = super().list(request, *args, **kwargs)
+            # If we have results, return them
+            if response.data.get('results') or response.data.get('count', 0) > 0:
+                return response
+        except Exception:
+            # Database error, will use fallback
+            pass
+        
+        # Fallback to hardcoded data
+        lang = get_language_from_request(request)
+        active_only = request.query_params.get('active_only') == 'true'
+        department_id = request.query_params.get('department')
+        dept_id = int(department_id) if department_id else None
+        
+        positions = get_job_positions_with_fallback(lang, dept_id, active_only)
+        
+        # Convert to serializer format
+        from rest_framework.pagination import PageNumberPagination
+        paginator = PageNumberPagination()
+        paginator.page_size = request.query_params.get('page_size', 100)
+        
+        page = paginator.paginate_queryset(positions, request)
+        if page is not None:
+            serialized = []
+            for pos in page:
+                serialized.append({
+                    'id': pos.get('id'),
+                    'code': pos['code'],
+                    'name': pos['name'],
+                    'department': pos.get('department_id'),
+                    'department_id': pos.get('department_id'),
+                    'level': pos['level'],
+                    'is_active': pos['is_active'],
+                    'salary_min': None,
+                    'salary_max': None,
+                    'description': '',
+                    'requirements': '',
+                    'responsibilities': '',
+                    'created_at': None,
+                    'updated_at': None,
+                })
+            return paginator.get_paginated_response(serialized)
+        
+        # No pagination
+        serialized = [
+            {
+                'id': pos.get('id'),
+                'code': pos['code'],
+                'name': pos['name'],
+                'department': pos.get('department_id'),
+                'department_id': pos.get('department_id'),
+                'level': pos['level'],
+                'is_active': pos['is_active'],
+                'salary_min': None,
+                'salary_max': None,
+                'description': '',
+                'requirements': '',
+                'responsibilities': '',
+                'created_at': None,
+                'updated_at': None,
+            }
+            for pos in positions
+        ]
+        return Response({
+            'count': len(serialized),
+            'next': None,
+            'previous': None,
+            'results': serialized
+        })
 
 
 class CompanyViewSet(viewsets.ModelViewSet):
@@ -91,7 +233,7 @@ class EmployeeViewSet(viewsets.ModelViewSet):
     """
     queryset = Employee.objects.select_related(
         'user', 'department', 'supervisor__user', 'job_position', 'company'
-    ).prefetch_related('supervisor__user').all()
+    ).all()
     serializer_class = EmployeeSerializer
     permission_classes = [HasModulePermission]
     required_module = 'hr'
@@ -118,7 +260,7 @@ class EmployeeViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         try:
-            employee = Employee.objects.get(user_id=user_id)
+            employee = Employee.objects.select_related('user', 'department', 'job_position', 'supervisor__user').get(user_id=user_id)
             serializer = self.get_serializer(employee)
             return Response(serializer.data)
         except Employee.DoesNotExist:
@@ -319,7 +461,10 @@ class EmployeeHistoryViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class BenefitViewSet(viewsets.ModelViewSet):
-    """ViewSet for Benefit management"""
+    """
+    ViewSet for Benefit management
+    Uses hardcoded data as fallback if database is empty
+    """
     queryset = Benefit.objects.all()
     serializer_class = BenefitSerializer
     permission_classes = [HasModulePermission]
@@ -330,6 +475,78 @@ class BenefitViewSet(viewsets.ModelViewSet):
     filterset_fields = ['benefit_type', 'is_active']
     ordering_fields = ['name', 'created_at']
     ordering = ['name']
+    
+    def list(self, request, *args, **kwargs):
+        """List benefits with fallback to hardcoded data"""
+        # Try to get from database first
+        try:
+            response = super().list(request, *args, **kwargs)
+            # If we have results, return them
+            if response.data.get('results') or response.data.get('count', 0) > 0:
+                return response
+        except Exception:
+            # Database error, will use fallback
+            pass
+        
+        # Fallback to hardcoded data
+        # Try to get from tenant settings first
+        from .helpers import get_tenant_settings
+        settings = get_tenant_settings(request)
+        
+        if settings:
+            lang = settings.get('language', get_language_from_request(request))
+            country = settings.get('country', 'BR')
+        else:
+            lang = get_language_from_request(request)
+            country = 'BR'
+        
+        active_only = request.query_params.get('active_only') == 'true'
+        
+        benefits = get_benefits_with_fallback(lang, country, active_only)
+        
+        # Convert to serializer format
+        from rest_framework.pagination import PageNumberPagination
+        paginator = PageNumberPagination()
+        paginator.page_size = request.query_params.get('page_size', 100)
+        
+        page = paginator.paginate_queryset(benefits, request)
+        if page is not None:
+            serialized = []
+            for benefit in page:
+                serialized.append({
+                    'id': benefit.get('id'),
+                    'name': benefit['name'],
+                    'benefit_type': benefit['benefit_type'],
+                    'description': benefit['description'],
+                    'value': benefit.get('value'),
+                    'limit': benefit.get('limit'),
+                    'is_active': benefit['is_active'],
+                    'created_at': None,
+                    'updated_at': None,
+                })
+            return paginator.get_paginated_response(serialized)
+        
+        # No pagination
+        serialized = [
+            {
+                'id': benefit.get('id'),
+                'name': benefit['name'],
+                'benefit_type': benefit['benefit_type'],
+                'description': benefit['description'],
+                'value': benefit.get('value'),
+                'limit': benefit.get('limit'),
+                'is_active': benefit['is_active'],
+                'created_at': None,
+                'updated_at': None,
+            }
+            for benefit in benefits
+        ]
+        return Response({
+            'count': len(serialized),
+            'next': None,
+            'previous': None,
+            'results': serialized
+        })
 
 
 class EmployeeBenefitViewSet(viewsets.ModelViewSet):
@@ -574,21 +791,21 @@ class EmployeeTrainingViewSet(viewsets.ModelViewSet):
 
 class JobOpeningViewSet(viewsets.ModelViewSet):
     """ViewSet for Job Opening management"""
-    queryset = JobOpening.objects.select_related('department', 'hiring_manager__user').all()
+    queryset = JobOpening.objects.select_related('department').all()
     serializer_class = JobOpeningSerializer
     permission_classes = [HasModulePermission]
     required_module = 'hr'
     required_level = 'view'
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     search_fields = ['title', 'description', 'requirements']
-    filterset_fields = ['department', 'status', 'hiring_manager']
-    ordering_fields = ['posted_date', 'deadline', 'created_at']
+    filterset_fields = ['department', 'status']
+    ordering_fields = ['posted_date', 'closing_date', 'created_at']
     ordering = ['-posted_date']
 
 
 class CandidateViewSet(viewsets.ModelViewSet):
     """ViewSet for Candidate management"""
-    queryset = Candidate.objects.select_related('job_opening', 'referred_by__user').all()
+    queryset = Candidate.objects.select_related('job_opening').all()
     serializer_class = CandidateSerializer
     permission_classes = [HasModulePermission]
     required_module = 'hr'
@@ -596,8 +813,8 @@ class CandidateViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['job_opening', 'status']
     search_fields = ['first_name', 'last_name', 'email', 'phone']
-    ordering_fields = ['application_date', 'created_at']
-    ordering = ['-application_date']
+    ordering_fields = ['applied_at', 'updated_at']
+    ordering = ['-applied_at']
 
 
 class PayrollViewSet(viewsets.ReadOnlyModelViewSet):

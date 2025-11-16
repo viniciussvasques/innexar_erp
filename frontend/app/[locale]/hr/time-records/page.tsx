@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { DataTable } from '@/components/ui/data-table'
-import { Clock, Search, Plus, CheckCircle, XCircle, Edit, Trash2 } from 'lucide-react'
+import { Clock, Search, Plus, CheckCircle, Edit, Trash2, MoreVertical } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { hrApi } from '@/lib/api/hr'
 import { TimeRecord } from '@/types/api'
@@ -16,12 +16,15 @@ import { ColumnDef } from '@tanstack/react-table'
 import { Badge } from '@/components/ui/badge'
 import { format } from 'date-fns'
 import { TimeRecordForm } from '@/components/hr/TimeRecordForm'
+import { ApprovalDialog } from '@/components/hr/ApprovalDialog'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { AdvancedFilters, FilterOption } from '@/components/hr/AdvancedFilters'
 
 export default function TimeRecordsPage() {
   const t = useTranslations('hr')
@@ -38,18 +41,83 @@ export default function TimeRecordsPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [selectedTimeRecord, setSelectedTimeRecord] = useState<TimeRecord | null>(null)
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | undefined>()
+  const [approvalDialogOpen, setApprovalDialogOpen] = useState(false)
+  const [timeRecordToApprove, setTimeRecordToApprove] = useState<TimeRecord | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [timeRecordToDelete, setTimeRecordToDelete] = useState<TimeRecord | null>(null)
+  const [filters, setFilters] = useState<Record<string, string | number | undefined>>({
+    employee_id: undefined,
+    is_approved: undefined,
+    record_type: undefined,
+  })
+
+  // Buscar funcionários para o filtro
+  const { data: employeesData } = useQuery({
+    queryKey: ['hr', 'employees', 'filter'],
+    queryFn: () => hrApi.getEmployees({ status: 'active', page_size: 1000 }),
+  })
+
+  const filterOptions: FilterOption[] = [
+    {
+      key: 'employee_id',
+      label: t('employee'),
+      type: 'select',
+      options:
+        employeesData?.results?.map(emp => ({
+          value: emp.id.toString(),
+          label: emp.user
+            ? `${emp.user.first_name || ''} ${emp.user.last_name || ''}`.trim() || emp.user.email
+            : emp.employee_number,
+        })) || [],
+    },
+    {
+      key: 'is_approved',
+      label: t('approvalStatus') || 'Approval Status',
+      type: 'select',
+      options: [
+        { value: 'true', label: t('approved') || 'Approved' },
+        { value: 'false', label: t('pending') || 'Pending' },
+      ],
+    },
+    {
+      key: 'record_type',
+      label: t('recordType') || 'Record Type',
+      type: 'select',
+      options: [
+        { value: 'check_in', label: t('checkIn') || 'Check In' },
+        { value: 'check_out', label: t('checkOut') || 'Check Out' },
+        { value: 'lunch_in', label: t('lunchIn') || 'Lunch In' },
+        { value: 'lunch_out', label: t('lunchOut') || 'Lunch Out' },
+        { value: 'overtime_in', label: t('overtimeIn') || 'Overtime In' },
+        { value: 'overtime_out', label: t('overtimeOut') || 'Overtime Out' },
+      ],
+    },
+  ]
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['hr', 'time-records', page, pageSize, dateFrom, dateTo],
+    queryKey: ['hr', 'time-records', page, pageSize, dateFrom, dateTo, filters],
     queryFn: () =>
       hrApi.getTimeRecords({
         page,
         page_size: pageSize,
         date_from: dateFrom,
         date_to: dateTo,
+        employee: filters.employee_id ? Number(filters.employee_id) : undefined,
+        is_approved: filters.is_approved !== undefined ? filters.is_approved === 'true' : undefined,
+        record_type: filters.record_type as string | undefined,
       }),
     retry: false,
   })
+
+  const handleFilterChange = (key: string, value: string | number | undefined) => {
+    setFilters(prev => ({ ...prev, [key]: value }))
+    setPage(1)
+  }
+
+  const handleClearFilters = () => {
+    setFilters({ employee_id: undefined, is_approved: undefined, record_type: undefined })
+    setPage(1)
+  }
 
   const approveMutation = useMutation({
     mutationFn: (id: number) => hrApi.approveTimeRecord(id),
@@ -59,18 +127,27 @@ export default function TimeRecordsPage() {
         title: tCommon('success'),
         description: t('timeRecordApproved') || 'Time record approved successfully',
       })
+      setApprovalDialogOpen(false)
+      setTimeRecordToApprove(null)
     },
     onError: (error: any) => {
       toast({
         title: tCommon('error'),
-        description: error.response?.data?.detail || 'Failed to approve time record',
+        description: error?.response?.data?.detail || error?.message || tCommon('errorOccurred'),
         variant: 'destructive',
       })
     },
   })
 
-  const handleApprove = (id: number) => {
-    approveMutation.mutate(id)
+  const handleApprove = (record: TimeRecord) => {
+    setTimeRecordToApprove(record)
+    setApprovalDialogOpen(true)
+  }
+
+  const confirmApproval = () => {
+    if (timeRecordToApprove) {
+      approveMutation.mutate(timeRecordToApprove.id)
+    }
   }
 
   const deleteMutation = useMutation({
@@ -81,19 +158,26 @@ export default function TimeRecordsPage() {
         title: tCommon('success'),
         description: t('timeRecordDeleted') || 'Time record deleted successfully',
       })
+      setDeleteDialogOpen(false)
+      setTimeRecordToDelete(null)
     },
     onError: (error: any) => {
       toast({
         title: tCommon('error'),
-        description: error.response?.data?.detail || 'Failed to delete time record',
+        description: error?.response?.data?.detail || error?.message || tCommon('errorOccurred'),
         variant: 'destructive',
       })
     },
   })
 
-  const handleDelete = (id: number) => {
-    if (confirm(tCommon('confirm.deleteConfirm') || 'Are you sure you want to delete this time record?')) {
-      deleteMutation.mutate(id)
+  const handleDelete = (record: TimeRecord) => {
+    setTimeRecordToDelete(record)
+    setDeleteDialogOpen(true)
+  }
+
+  const confirmDelete = () => {
+    if (timeRecordToDelete) {
+      deleteMutation.mutate(timeRecordToDelete.id)
     }
   }
 
@@ -177,14 +261,14 @@ export default function TimeRecordsPage() {
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm">
-                {tCommon('actions') || 'Actions'}
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               {!record.is_approved && (
                 <DropdownMenuItem
-                  onClick={() => handleApprove(record.id)}
+                  onClick={() => handleApprove(record)}
                   disabled={approveMutation.isPending}
                 >
                   <CheckCircle className="mr-2 h-4 w-4" />
@@ -196,7 +280,7 @@ export default function TimeRecordsPage() {
                 {tCommon('edit')}
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => handleDelete(record.id)}
+                onClick={() => handleDelete(record)}
                 className="text-red-600"
               >
                 <Trash2 className="mr-2 h-4 w-4" />
@@ -240,6 +324,12 @@ export default function TimeRecordsPage() {
                   value={dateTo}
                   onChange={e => setDateTo(e.target.value)}
                   className="w-40"
+                />
+                <AdvancedFilters
+                  filters={filterOptions}
+                  values={filters}
+                  onChange={handleFilterChange}
+                  onClear={handleClearFilters}
                 />
               </div>
             </div>
@@ -300,6 +390,40 @@ export default function TimeRecordsPage() {
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ['hr', 'time-records'] })
           }}
+        />
+
+        <ApprovalDialog
+          open={approvalDialogOpen}
+          onClose={() => {
+            setApprovalDialogOpen(false)
+            setTimeRecordToApprove(null)
+          }}
+          type="approve"
+          title={t('approveTimeRecord') || 'Approve Time Record'}
+          description={t('approveTimeRecordDescription') || 'Are you sure you want to approve this time record?'}
+          onConfirm={confirmApproval}
+          isLoading={approveMutation.isPending}
+        />
+
+        <ConfirmDialog
+          open={deleteDialogOpen}
+          onClose={() => {
+            setDeleteDialogOpen(false)
+            setTimeRecordToDelete(null)
+          }}
+          onConfirm={confirmDelete}
+          title={tCommon('confirmDelete') || 'Confirm Delete'}
+          description={
+            timeRecordToDelete
+              ? t('deleteTimeRecordConfirm') ||
+                'Are you sure you want to delete this time record? This action cannot be undone.'
+              : t('deleteTimeRecordConfirmGeneric') ||
+                'Are you sure you want to delete this time record?'
+          }
+          confirmText={tCommon('delete')}
+          cancelText={tCommon('cancel')}
+          variant="destructive"
+          isLoading={deleteMutation.isPending}
         />
       </div>
     </DashboardLayout>

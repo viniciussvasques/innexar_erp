@@ -24,9 +24,12 @@ apiClient.interceptors.request.use(
         if (userStr) {
           try {
             const user = JSON.parse(userStr)
-            if (user.default_tenant_schema) {
-              tenantSchema = user.default_tenant_schema
-              localStorage.setItem('tenant_schema', tenantSchema)
+            if (user.default_tenant?.schema_name) {
+              const schema = user.default_tenant.schema_name
+              if (schema) {
+                tenantSchema = schema
+                localStorage.setItem('tenant_schema', schema)
+              }
             }
           } catch (e) {
             // Ignore parse errors
@@ -45,6 +48,11 @@ apiClient.interceptors.request.use(
       }
 
       config.headers['Accept-Language'] = locale === 'pt' ? 'pt-BR' : locale
+
+      // Se for FormData, não definir Content-Type (deixa o browser definir multipart/form-data)
+      if (config.data instanceof FormData) {
+        delete config.headers['Content-Type']
+      }
     }
     return config
   },

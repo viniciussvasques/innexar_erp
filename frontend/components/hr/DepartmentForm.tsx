@@ -13,6 +13,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogBody,
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -87,7 +88,8 @@ export function DepartmentForm({ open, onClose, department, onSuccess }: Departm
             }
       )
     }
-  }, [open, department, reset])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, department])
 
   const onSubmit = async (data: DepartmentFormData) => {
     try {
@@ -109,7 +111,7 @@ export function DepartmentForm({ open, onClose, department, onSuccess }: Departm
     } catch (error: any) {
       toast({
         title: tCommon('error'),
-        description: error.response?.data?.detail || error.message || 'Failed to save department',
+        description: error?.response?.data?.detail || error?.message || tCommon('errorOccurred'),
         variant: 'destructive',
       })
     }
@@ -117,7 +119,7 @@ export function DepartmentForm({ open, onClose, department, onSuccess }: Departm
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent size="medium" className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent size="medium">
         <DialogHeader>
           <DialogTitle>{isEditing ? t('edit') || 'Edit Department' : t('newDepartment')}</DialogTitle>
           <DialogDescription>
@@ -126,9 +128,8 @@ export function DepartmentForm({ open, onClose, department, onSuccess }: Departm
               : t('createDepartment') || 'Create a new department'}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="flex-1 flex flex-col overflow-hidden">
-          <div className="flex-1 overflow-y-auto px-6 py-4">
-            <div className="space-y-5">
+        <DialogBody>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">{t('name')}</Label>
               <Input
@@ -181,10 +182,8 @@ export function DepartmentForm({ open, onClose, department, onSuccess }: Departm
                 {t('active') || 'Active'}
               </Label>
             </div>
-            </div>
-          </div>
 
-          <DialogFooter className="mt-4 px-6">
+            <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
               {tCommon('cancel')}
             </Button>
@@ -193,7 +192,8 @@ export function DepartmentForm({ open, onClose, department, onSuccess }: Departm
               {isEditing ? tCommon('update') : tCommon('create')}
             </Button>
           </DialogFooter>
-        </form>
+          </form>
+        </DialogBody>
       </DialogContent>
     </Dialog>
   )

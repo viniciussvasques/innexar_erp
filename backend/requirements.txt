@@ -58,3 +58,6 @@ ipython==8.21.0
 # Production
 gunicorn==21.2.0
 sentry-sdk==1.40.0
+
+# Integrations
+requests-oauthlib==2.0.0

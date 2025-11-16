@@ -21,6 +21,7 @@ import {
   Contract,
   EmployeeDocument,
   EmployeeHistory,
+  HRNotification,
   PaginatedResponse,
 } from '@/types/api'
 
@@ -32,7 +33,7 @@ export const hrApi = {
     search?: string
     status?: string
     department_id?: number
-    warehouse_id?: number
+    // warehouse_id?: number  // TODO: Uncomment when warehouse module is ready
     supervisor_id?: number
     hire_type?: 'individual' | 'company'
     ordering?: string
@@ -193,10 +194,10 @@ export const hrApi = {
   },
 
   processPayroll: async (data: {
+    employee_ids: number[]
     month: number
     year: number
-    department_id?: number
-  }): Promise<{ message: string; processed_count: number }> => {
+  }): Promise<{ processed: any[]; errors: string[] }> => {
     const response = await apiClient.post('/api/v1/hr/payroll/process/', data)
     return response.data
   },
@@ -499,6 +500,20 @@ export const hrApi = {
     return response.data
   },
 
+  createEmployeeTraining: async (data: Partial<EmployeeTraining>): Promise<EmployeeTraining> => {
+    const response = await apiClient.post<EmployeeTraining>('/api/v1/hr/employee-trainings/', data)
+    return response.data
+  },
+
+  updateEmployeeTraining: async (id: number, data: Partial<EmployeeTraining>): Promise<EmployeeTraining> => {
+    const response = await apiClient.patch<EmployeeTraining>(`/api/v1/hr/employee-trainings/${id}/`, data)
+    return response.data
+  },
+
+  deleteEmployeeTraining: async (id: number): Promise<void> => {
+    await apiClient.delete(`/api/v1/hr/employee-trainings/${id}/`)
+  },
+
   // Job Openings
   getJobOpenings: async (params?: {
     page?: number
@@ -506,7 +521,7 @@ export const hrApi = {
     search?: string
     status?: string
     department_id?: number
-    warehouse_id?: number
+    // warehouse_id?: number  // TODO: Uncomment when warehouse module is ready
   }): Promise<PaginatedResponse<JobOpening>> => {
     const response = await apiClient.get<PaginatedResponse<JobOpening>>(
       '/api/v1/hr/job-openings/',
@@ -564,8 +579,10 @@ export const hrApi = {
     return response.data
   },
 
-  updateCandidate: async (id: number, data: Partial<Candidate>): Promise<Candidate> => {
-    const response = await apiClient.patch<Candidate>(`/api/v1/hr/candidates/${id}/`, data)
+  updateCandidate: async (id: number, data: Partial<Candidate> | FormData): Promise<Candidate> => {
+    const response = await apiClient.patch<Candidate>(`/api/v1/hr/candidates/${id}/`, data, {
+      headers: data instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : undefined,
+    })
     return response.data
   },
 
@@ -818,6 +835,40 @@ export const hrApi = {
 
   getEmployeeHistoryEntry: async (id: number): Promise<EmployeeHistory> => {
     const response = await apiClient.get<EmployeeHistory>(`/api/v1/hr/employee-history/${id}/`)
+    return response.data
+  },
+
+  // HR Notifications
+  getNotifications: async (params?: {
+    page?: number
+    page_size?: number
+    employee?: number
+    notification_type?: string
+    is_read?: boolean
+  }): Promise<PaginatedResponse<HRNotification>> => {
+    const response = await apiClient.get<PaginatedResponse<HRNotification>>('/api/v1/hr/notifications/', {
+      params,
+    })
+    return response.data
+  },
+
+  getNotification: async (id: number): Promise<HRNotification> => {
+    const response = await apiClient.get<HRNotification>(`/api/v1/hr/notifications/${id}/`)
+    return response.data
+  },
+
+  markNotificationAsRead: async (id: number): Promise<HRNotification> => {
+    const response = await apiClient.post<HRNotification>(`/api/v1/hr/notifications/${id}/mark_read/`)
+    return response.data
+  },
+
+  markAllNotificationsAsRead: async (): Promise<{ message: string }> => {
+    const response = await apiClient.post<{ message: string }>('/api/v1/hr/notifications/mark_all_read/')
+    return response.data
+  },
+
+  getUnreadNotificationsCount: async (): Promise<{ count: number }> => {
+    const response = await apiClient.get<{ count: number }>('/api/v1/hr/notifications/unread_count/')
     return response.data
   },
 }

@@ -1,7 +1,8 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
-import { Menu, LogOut, User, Settings, Bell, Search, ChevronDown, Sun, Moon, Monitor } from 'lucide-react'
+import { Menu, LogOut, User, Settings, Search, ChevronDown, Sun, Moon, Monitor } from 'lucide-react'
+import { NotificationsDropdown } from '@/components/hr/NotificationsDropdown'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -113,10 +114,7 @@ export function Header({ onMenuClick, sidebarCollapsed }: HeaderProps) {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <Button variant="ghost" size="icon" className="relative h-9 w-9">
-            <Bell className="h-5 w-5" />
-            <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-red-500 rounded-full" />
-          </Button>
+          <NotificationsDropdown />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

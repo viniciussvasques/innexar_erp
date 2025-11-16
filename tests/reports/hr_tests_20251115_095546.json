@@ -1,0 +1,201 @@
+{
+  "timestamp": "2025-11-15T09:55:46.989850",
+  "base_url": "http://localhost:8000",
+  "summary": {
+    "total": 19,
+    "passed": 0,
+    "failed": 19
+  },
+  "results": [
+    {
+      "name": "Criar Departamento",
+      "endpoint": "/departments/",
+      "method": "POST",
+      "status_code": 401,
+      "success": false,
+      "error": "Esperado 201, recebido 401",
+      "duration_ms": 8.032,
+      "created_id": null
+    },
+    {
+      "name": "Criar Cargo",
+      "endpoint": "/job-positions/",
+      "method": "POST",
+      "status_code": 401,
+      "success": false,
+      "error": "Esperado 201, recebido 401",
+      "duration_ms": 8.054,
+      "created_id": null
+    },
+    {
+      "name": "Criar Empresa",
+      "endpoint": "/companies/",
+      "method": "POST",
+      "status_code": 401,
+      "success": false,
+      "error": "Esperado 201, recebido 401",
+      "duration_ms": 7.505999999999999,
+      "created_id": null
+    },
+    {
+      "name": "Criar Benefício",
+      "endpoint": "/benefits/",
+      "method": "POST",
+      "status_code": 401,
+      "success": false,
+      "error": "Esperado 201, recebido 401",
+      "duration_ms": 7.745,
+      "created_id": null
+    },
+    {
+      "name": "Listar Funcionários",
+      "endpoint": "/employees/",
+      "method": "GET",
+      "status_code": 401,
+      "success": false,
+      "error": "Esperado 200, recebido 401",
+      "duration_ms": 58.125,
+      "created_id": null
+    },
+    {
+      "name": "Funcionário por User ID",
+      "endpoint": "/employees/by_user/?user_id=1",
+      "method": "GET",
+      "status_code": 401,
+      "success": false,
+      "error": "Esperado 200, recebido 401",
+      "duration_ms": 50.217999999999996,
+      "created_id": null
+    },
+    {
+      "name": "Listar Registros de Ponto",
+      "endpoint": "/time-records/",
+      "method": "GET",
+      "status_code": 401,
+      "success": false,
+      "error": "Esperado 200, recebido 401",
+      "duration_ms": 60.51,
+      "created_id": null
+    },
+    {
+      "name": "Calcular Horas",
+      "endpoint": "/time-records/calculate_hours/?employee_id=1&start_date=2025-01-01&end_date=2025-01-31",
+      "method": "GET",
+      "status_code": 401,
+      "success": false,
+      "error": "Esperado 200, recebido 401",
+      "duration_ms": 49.921,
+      "created_id": null
+    },
+    {
+      "name": "Listar Férias",
+      "endpoint": "/vacations/",
+      "method": "GET",
+      "status_code": 401,
+      "success": false,
+      "error": "Esperado 200, recebido 401",
+      "duration_ms": 60.501,
+      "created_id": null
+    },
+    {
+      "name": "Saldo de Férias",
+      "endpoint": "/vacations/balance/?employee_id=1&as_of_date=2025-01-15",
+      "method": "GET",
+      "status_code": 401,
+      "success": false,
+      "error": "Esperado 200, recebido 401",
+      "duration_ms": 51.199,
+      "created_id": null
+    },
+    {
+      "name": "Criar Treinamento",
+      "endpoint": "/trainings/",
+      "method": "POST",
+      "status_code": 401,
+      "success": false,
+      "error": "Esperado 201, recebido 401",
+      "duration_ms": 10.001,
+      "created_id": null
+    },
+    {
+      "name": "Listar Vagas",
+      "endpoint": "/job-openings/",
+      "method": "GET",
+      "status_code": 401,
+      "success": false,
+      "error": "Esperado 200, recebido 401",
+      "duration_ms": 59.906,
+      "created_id": null
+    },
+    {
+      "name": "Listar Candidatos",
+      "endpoint": "/candidates/",
+      "method": "GET",
+      "status_code": 401,
+      "success": false,
+      "error": "Esperado 200, recebido 401",
+      "duration_ms": 50.669,
+      "created_id": null
+    },
+    {
+      "name": "Listar Folhas",
+      "endpoint": "/payroll/",
+      "method": "GET",
+      "status_code": 401,
+      "success": false,
+      "error": "Esperado 200, recebido 401",
+      "duration_ms": 69.92,
+      "created_id": null
+    },
+    {
+      "name": "Listar Notificações",
+      "endpoint": "/notifications/",
+      "method": "GET",
+      "status_code": 401,
+      "success": false,
+      "error": "Esperado 200, recebido 401",
+      "duration_ms": 60.366,
+      "created_id": null
+    },
+    {
+      "name": "Contagem de Não Lidas",
+      "endpoint": "/notifications/unread_count/",
+      "method": "GET",
+      "status_code": 401,
+      "success": false,
+      "error": "Esperado 200, recebido 401",
+      "duration_ms": 50.744,
+      "created_id": null
+    },
+    {
+      "name": "Criar Departamento sem nome (deve falhar)",
+      "endpoint": "/departments/",
+      "method": "POST",
+      "status_code": 401,
+      "success": false,
+      "error": "Esperado 400, recebido 401",
+      "duration_ms": 9.053,
+      "created_id": null
+    },
+    {
+      "name": "Buscar Departamento inexistente",
+      "endpoint": "/departments/999999/",
+      "method": "GET",
+      "status_code": 401,
+      "success": false,
+      "error": "Esperado 404, recebido 401",
+      "duration_ms": 51.219,
+      "created_id": null
+    },
+    {
+      "name": "Atualizar Departamento inexistente",
+      "endpoint": "/departments/999999/",
+      "method": "PATCH",
+      "status_code": 401,
+      "success": false,
+      "error": "Esperado 404, recebido 401",
+      "duration_ms": 12.557,
+      "created_id": null
+    }
+  ]
+}

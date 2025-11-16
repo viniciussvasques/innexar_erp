@@ -36,6 +36,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogBody,
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 
@@ -70,21 +71,84 @@ export default function PayrollPage() {
     retry: false,
   })
 
+  // Buscar funcionários ativos para processar folha
+  const { data: employeesData } = useQuery({
+    queryKey: ['hr', 'employees', 'active'],
+    queryFn: () => hrApi.getEmployees({ page_size: 1000, status: 'active' }),
+    enabled: processDialogOpen, // Só buscar quando o dialog estiver aberto
+  })
+
   const processMutation = useMutation({
-    mutationFn: (data: { month: number; year: number; department_id?: number }) =>
-      hrApi.processPayroll(data),
+    mutationFn: async (data: { month: number; year: number }) => {
+      // Buscar funcionários ativos se não estiverem carregados
+      let employeeIds: number[] = []
+      if (employeesData?.results) {
+        employeeIds = employeesData.results.map(emp => emp.id)
+      } else {
+        // Se não estiverem carregados, buscar agora
+        const employees = await hrApi.getEmployees({ page_size: 1000, status: 'active' })
+        employeeIds = employees.results.map(emp => emp.id)
+      }
+
+      if (employeeIds.length === 0) {
+        throw new Error('No active employees found')
+      }
+
+      return hrApi.processPayroll({
+        employee_ids: employeeIds,
+        month: data.month,
+        year: data.year,
+      })
+    },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['hr', 'payroll'] })
+      const processedCount = result.processed?.length || 0
+      const errorCount = result.errors?.length || 0
+      
+      let description = t('payrollProcessed') || `Payroll processed for ${processedCount} employees`
+      if (errorCount > 0) {
+        description += `. ${errorCount} error(s) occurred.`
+      }
+      
       toast({
         title: tCommon('success'),
-        description: t('payrollProcessed') || `Payroll processed for ${result.processed_count} employees`,
+        description,
       })
       setProcessDialogOpen(false)
     },
     onError: (error: any) => {
+      // Tratar erros de validação do Django REST Framework
+      let errorMessage = tCommon('errorOccurred')
+      
+      if (error?.response?.data) {
+        const errorData = error.response.data
+        
+        // Se for um objeto de validação (DRF)
+        if (typeof errorData === 'object' && !errorData.detail && !errorData.error) {
+          // Coletar todas as mensagens de erro
+          const errorMessages: string[] = []
+          for (const [field, messages] of Object.entries(errorData)) {
+            if (Array.isArray(messages)) {
+              errorMessages.push(`${field}: ${messages.join(', ')}`)
+            } else if (typeof messages === 'string') {
+              errorMessages.push(`${field}: ${messages}`)
+            } else if (typeof messages === 'object') {
+              errorMessages.push(`${field}: ${JSON.stringify(messages)}`)
+            }
+          }
+          errorMessage = errorMessages.length > 0 
+            ? errorMessages.join('; ') 
+            : JSON.stringify(errorData)
+        } else {
+          errorMessage = errorData.error || errorData.detail || errorData.message || errorMessage
+        }
+      } else if (error?.message) {
+        errorMessage = error.message
+      }
+      
       toast({
         title: tCommon('error'),
-        description: error.response?.data?.detail || 'Failed to process payroll',
+        description: errorMessage,
         variant: 'destructive',
       })
     },
@@ -306,42 +370,44 @@ export default function PayrollPage() {
         </Card>
 
         <Dialog open={processDialogOpen} onOpenChange={setProcessDialogOpen}>
-          <DialogContent>
+          <DialogContent size="medium">
             <DialogHeader>
               <DialogTitle>{t('processPayroll')}</DialogTitle>
               <DialogDescription>
                 {t('processPayrollDescription') || 'Process payroll for the selected month and year'}
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="process-month">{t('month') || 'Month'}</Label>
-                <Select
-                  value={processMonth.toString()}
-                  onValueChange={value => setProcessMonth(Number(value))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                      <SelectItem key={m} value={m.toString()}>
-                        {new Date(2000, m - 1).toLocaleString('pt-BR', { month: 'long' })}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <DialogBody>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="process-month">{t('month') || 'Month'}</Label>
+                  <Select
+                    value={processMonth.toString()}
+                    onValueChange={value => setProcessMonth(Number(value))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                        <SelectItem key={m} value={m.toString()}>
+                          {new Date(2000, m - 1).toLocaleString('pt-BR', { month: 'long' })}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="process-year">{t('year') || 'Year'}</Label>
+                  <Input
+                    id="process-year"
+                    type="number"
+                    value={processYear}
+                    onChange={e => setProcessYear(Number(e.target.value))}
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="process-year">{t('year') || 'Year'}</Label>
-                <Input
-                  id="process-year"
-                  type="number"
-                  value={processYear}
-                  onChange={e => setProcessYear(Number(e.target.value))}
-                />
-              </div>
-            </div>
+            </DialogBody>
             <DialogFooter>
               <Button variant="outline" onClick={() => setProcessDialogOpen(false)}>
                 {tCommon('cancel')}

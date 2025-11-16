@@ -4,25 +4,45 @@ import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { DashboardLayout } from '@/components/layouts/DashboardLayout'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { DataTable } from '@/components/ui/data-table'
-import { TrendingUp, Plus } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
+import { TrendingUp, Plus, Search, Edit, Trash2, MoreVertical } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { hrApi } from '@/lib/api/hr'
 import { PerformanceReview } from '@/types/api'
 import { ColumnDef } from '@tanstack/react-table'
 import { Badge } from '@/components/ui/badge'
 import { format } from 'date-fns'
+import { PerformanceReviewForm } from '@/components/hr/PerformanceReviewForm'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { useToast } from '@/lib/hooks/use-toast'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { useDebounce } from '@/lib/hooks/use-debounce'
 
 export default function PerformancePage() {
   const t = useTranslations('hr')
   const tCommon = useTranslations('common')
+  const { toast } = useToast()
+  const queryClient = useQueryClient()
 
   const [page, setPage] = useState(1)
   const [pageSize] = useState(50)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [isFormOpen, setIsFormOpen] = useState(false)
+  const [selectedReview, setSelectedReview] = useState<PerformanceReview | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [reviewToDelete, setReviewToDelete] = useState<PerformanceReview | null>(null)
+
+  const debouncedSearch = useDebounce(searchTerm, 300)
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['hr', 'performance-reviews', page, pageSize],
+    queryKey: ['hr', 'performance-reviews', page, pageSize, debouncedSearch],
     queryFn: () =>
       hrApi.getPerformanceReviews({
         page,
@@ -30,6 +50,43 @@ export default function PerformancePage() {
       }),
     retry: false,
   })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => hrApi.deletePerformanceReview(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hr', 'performance-reviews'] })
+      toast({
+        title: tCommon('success'),
+        description: t('deletePerformanceReviewSuccess') || 'Performance review deleted successfully',
+      })
+      setDeleteDialogOpen(false)
+      setReviewToDelete(null)
+    },
+    onError: (error: any) => {
+      toast({
+        title: tCommon('error'),
+        description:
+          error?.response?.data?.detail || error?.message || tCommon('errorOccurred'),
+        variant: 'destructive',
+      })
+    },
+  })
+
+  const handleDelete = (review: PerformanceReview) => {
+    setReviewToDelete(review)
+    setDeleteDialogOpen(true)
+  }
+
+  const confirmDelete = () => {
+    if (reviewToDelete) {
+      deleteMutation.mutate(reviewToDelete.id)
+    }
+  }
+
+  const handleEdit = (review: PerformanceReview) => {
+    setSelectedReview(review)
+    setIsFormOpen(true)
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -95,6 +152,34 @@ export default function PerformancePage() {
         )
       },
     },
+    {
+      id: 'actions',
+      cell: ({ row }) => {
+        const review = row.original
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleEdit(review)}>
+                <Edit className="mr-2 h-4 w-4" />
+                {tCommon('edit')}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleDelete(review)}
+                className="text-red-600"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                {tCommon('delete')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )
+      },
+    },
   ]
 
   return (
@@ -111,7 +196,32 @@ export default function PerformancePage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>{t('performance')}</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>{t('performance')}</CardTitle>
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder={t('search') || 'Search...'}
+                    value={searchTerm}
+                    onChange={e => {
+                      setSearchTerm(e.target.value)
+                      setPage(1)
+                    }}
+                    className="pl-10 w-64"
+                  />
+                </div>
+                <Button
+                  onClick={() => {
+                    setSelectedReview(null)
+                    setIsFormOpen(true)
+                  }}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  {t('newPerformanceReview') || 'New Performance Review'}
+                </Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -158,6 +268,39 @@ export default function PerformancePage() {
             )}
           </CardContent>
         </Card>
+
+        <PerformanceReviewForm
+          open={isFormOpen}
+          onClose={() => {
+            setIsFormOpen(false)
+            setSelectedReview(null)
+          }}
+          performanceReview={selectedReview || undefined}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['hr', 'performance-reviews'] })
+          }}
+        />
+
+        <ConfirmDialog
+          open={deleteDialogOpen}
+          onClose={() => {
+            setDeleteDialogOpen(false)
+            setReviewToDelete(null)
+          }}
+          onConfirm={confirmDelete}
+          title={tCommon('confirmDelete') || 'Confirm Delete'}
+          description={
+            reviewToDelete
+              ? t('deletePerformanceReviewConfirm') ||
+                'Are you sure you want to delete this performance review? This action cannot be undone.'
+              : t('deletePerformanceReviewConfirmGeneric') ||
+                'Are you sure you want to delete this performance review?'
+          }
+          confirmText={tCommon('delete')}
+          cancelText={tCommon('cancel')}
+          variant="destructive"
+          isLoading={deleteMutation.isPending}
+        />
       </div>
     </DashboardLayout>
   )

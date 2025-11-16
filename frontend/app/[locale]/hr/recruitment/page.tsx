@@ -7,8 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { DataTable } from '@/components/ui/data-table'
-import { UserCheck, Search, Plus, Briefcase } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
+import { UserCheck, Search, Plus, Briefcase, Edit, Trash2, MoreVertical } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { hrApi } from '@/lib/api/hr'
 import { JobOpening, Candidate } from '@/types/api'
 import { ColumnDef } from '@tanstack/react-table'
@@ -16,15 +16,33 @@ import { useDebounce } from '@/lib/hooks/use-debounce'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { format } from 'date-fns'
+import { JobOpeningForm } from '@/components/hr/JobOpeningForm'
+import { CandidateForm } from '@/components/hr/CandidateForm'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { useToast } from '@/lib/hooks/use-toast'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 export default function RecruitmentPage() {
   const t = useTranslations('hr')
   const tCommon = useTranslations('common')
+  const { toast } = useToast()
+  const queryClient = useQueryClient()
 
   const [searchTerm, setSearchTerm] = useState('')
   const [page, setPage] = useState(1)
   const [pageSize] = useState(50)
   const [activeTab, setActiveTab] = useState<'jobs' | 'candidates'>('jobs')
+  const [isJobFormOpen, setIsJobFormOpen] = useState(false)
+  const [selectedJob, setSelectedJob] = useState<JobOpening | null>(null)
+  const [isCandidateFormOpen, setIsCandidateFormOpen] = useState(false)
+  const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [itemToDelete, setItemToDelete] = useState<{ type: 'job' | 'candidate'; id: number } | null>(null)
 
   const debouncedSearch = useDebounce(searchTerm, 300)
 
@@ -51,6 +69,73 @@ export default function RecruitmentPage() {
     retry: false,
     enabled: activeTab === 'candidates',
   })
+
+  const deleteJobMutation = useMutation({
+    mutationFn: (id: number) => hrApi.deleteJobOpening(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hr', 'job-openings'] })
+      toast({
+        title: tCommon('success'),
+        description: t('deleteJobOpeningSuccess') || 'Job opening deleted successfully',
+      })
+      setDeleteDialogOpen(false)
+      setItemToDelete(null)
+    },
+    onError: (error: any) => {
+      toast({
+        title: tCommon('error'),
+        description:
+          error?.response?.data?.detail || error?.message || tCommon('errorOccurred'),
+        variant: 'destructive',
+      })
+    },
+  })
+
+  const deleteCandidateMutation = useMutation({
+    mutationFn: (id: number) => hrApi.deleteCandidate(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hr', 'candidates'] })
+      toast({
+        title: tCommon('success'),
+        description: t('deleteCandidateSuccess') || 'Candidate deleted successfully',
+      })
+      setDeleteDialogOpen(false)
+      setItemToDelete(null)
+    },
+    onError: (error: any) => {
+      toast({
+        title: tCommon('error'),
+        description:
+          error?.response?.data?.detail || error?.message || tCommon('errorOccurred'),
+        variant: 'destructive',
+      })
+    },
+  })
+
+  const handleDelete = (type: 'job' | 'candidate', id: number) => {
+    setItemToDelete({ type, id })
+    setDeleteDialogOpen(true)
+  }
+
+  const confirmDelete = () => {
+    if (itemToDelete) {
+      if (itemToDelete.type === 'job') {
+        deleteJobMutation.mutate(itemToDelete.id)
+      } else {
+        deleteCandidateMutation.mutate(itemToDelete.id)
+      }
+    }
+  }
+
+  const handleEditJob = (job: JobOpening) => {
+    setSelectedJob(job)
+    setIsJobFormOpen(true)
+  }
+
+  const handleEditCandidate = (candidate: Candidate) => {
+    setSelectedCandidate(candidate)
+    setIsCandidateFormOpen(true)
+  }
 
   const jobColumns: ColumnDef<JobOpening>[] = [
     {
@@ -95,6 +180,34 @@ export default function RecruitmentPage() {
           <Badge className={statusColors[status] || ''}>
             {statusLabels[status] || status}
           </Badge>
+        )
+      },
+    },
+    {
+      id: 'actions',
+      cell: ({ row }) => {
+        const job = row.original
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleEditJob(job)}>
+                <Edit className="mr-2 h-4 w-4" />
+                {tCommon('edit')}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleDelete('job', job.id)}
+                className="text-red-600"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                {tCommon('delete')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )
       },
     },
@@ -151,6 +264,34 @@ export default function RecruitmentPage() {
         )
       },
     },
+    {
+      id: 'actions',
+      cell: ({ row }) => {
+        const candidate = row.original
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleEditCandidate(candidate)}>
+                <Edit className="mr-2 h-4 w-4" />
+                {tCommon('edit')}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleDelete('candidate', candidate.id)}
+                className="text-red-600"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                {tCommon('delete')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )
+      },
+    },
   ]
 
   return (
@@ -192,6 +333,15 @@ export default function RecruitmentPage() {
                         className="pl-10 w-64"
                       />
                     </div>
+                    <Button
+                      onClick={() => {
+                        setSelectedJob(null)
+                        setIsJobFormOpen(true)
+                      }}
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      {t('newJobOpening') || 'New Job Opening'}
+                    </Button>
                   </div>
                 </div>
               </CardHeader>
@@ -263,6 +413,15 @@ export default function RecruitmentPage() {
                         className="pl-10 w-64"
                       />
                     </div>
+                    <Button
+                      onClick={() => {
+                        setSelectedCandidate(null)
+                        setIsCandidateFormOpen(true)
+                      }}
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      {t('newCandidate') || 'New Candidate'}
+                    </Button>
                   </div>
                 </div>
               </CardHeader>
@@ -315,6 +474,53 @@ export default function RecruitmentPage() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        <JobOpeningForm
+          open={isJobFormOpen}
+          onClose={() => {
+            setIsJobFormOpen(false)
+            setSelectedJob(null)
+          }}
+          jobOpening={selectedJob || undefined}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['hr', 'job-openings'] })
+          }}
+        />
+
+        <CandidateForm
+          open={isCandidateFormOpen}
+          onClose={() => {
+            setIsCandidateFormOpen(false)
+            setSelectedCandidate(null)
+          }}
+          candidate={selectedCandidate || undefined}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['hr', 'candidates'] })
+          }}
+        />
+
+        <ConfirmDialog
+          open={deleteDialogOpen}
+          onClose={() => {
+            setDeleteDialogOpen(false)
+            setItemToDelete(null)
+          }}
+          onConfirm={confirmDelete}
+          title={tCommon('confirmDelete') || 'Confirm Delete'}
+          description={
+            itemToDelete
+              ? itemToDelete.type === 'job'
+                ? t('deleteJobOpeningConfirm') ||
+                  'Are you sure you want to delete this job opening? This action cannot be undone.'
+                : t('deleteCandidateConfirm') ||
+                  'Are you sure you want to delete this candidate? This action cannot be undone.'
+              : t('deleteConfirmGeneric') || 'Are you sure you want to delete this item?'
+          }
+          confirmText={tCommon('delete')}
+          cancelText={tCommon('cancel')}
+          variant="destructive"
+          isLoading={deleteJobMutation.isPending || deleteCandidateMutation.isPending}
+        />
       </div>
     </DashboardLayout>
   )

@@ -25,8 +25,8 @@ export const useAuthStore = create<AuthState>()(
         localStorage.setItem('user', JSON.stringify(user))
         
         // Store tenant schema if available
-        if (user.default_tenant_schema) {
-          localStorage.setItem('tenant_schema', user.default_tenant_schema)
+        if (user.default_tenant?.schema_name) {
+          localStorage.setItem('tenant_schema', user.default_tenant.schema_name)
         }
         
         set({
