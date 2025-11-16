@@ -65,6 +65,7 @@ class TenantSettingsViewSet(viewsets.ModelViewSet):
     """API endpoints for tenant settings"""
     serializer_class = TenantSettingsSerializer
     permission_classes = [IsAuthenticated]
+    http_method_names = ['get', 'post', 'patch', 'put', 'head', 'options']
     
     def get_queryset(self):
         """Get settings for current tenant"""
@@ -78,7 +79,8 @@ class TenantSettingsViewSet(viewsets.ModelViewSet):
     def get_object(self):
         """Get or create settings for current tenant"""
         if not hasattr(self.request, 'tenant'):
-            return None
+            from rest_framework.exceptions import NotFound
+            raise NotFound('Tenant not found')
         
         tenant = self.request.tenant
         with schema_context(tenant.schema_name):
@@ -86,6 +88,30 @@ class TenantSettingsViewSet(viewsets.ModelViewSet):
                 defaults={'company_name': tenant.name}
             )
             return settings
+    
+    def list(self, request, *args, **kwargs):
+        """Override list to return single object and handle PATCH/PUT (GET/PATCH/PUT /api/v1/tenants/settings/)"""
+        instance = self.get_object()
+        
+        # Handle PATCH/PUT on list endpoint (no ID in URL)
+        if request.method in ('PATCH', 'PUT'):
+            partial = request.method == 'PATCH'
+            serializer = self.get_serializer(instance, data=request.data, partial=partial)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data)
+        
+        # Normal GET request
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+    
+    def create(self, request, *args, **kwargs):
+        """Override create to update existing settings (POST /api/v1/tenants/settings/)"""
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     def get_serializer_context(self):
         """Add request to serializer context"""

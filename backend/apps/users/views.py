@@ -25,8 +25,23 @@ class CustomTokenObtainPairView(TokenObtainPairView):
             try:
                 email = request.data.get('email')
                 # User is in public schema (SHARED_APPS), so we can query directly
-                user = User.objects.get(email=email)
-                response.data['user'] = UserSerializer(user).data
+                # Use select_related to load default_tenant in a single query
+                user = User.objects.select_related('default_tenant').get(email=email)
+                
+                # Debug: Log user and default_tenant info
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.info(f"Login: User {email} has default_tenant: {user.default_tenant}")
+                if user.default_tenant:
+                    logger.info(f"Login: default_tenant schema_name: {user.default_tenant.schema_name}")
+                
+                user_data = UserSerializer(user).data
+                logger.info(f"Login: Serialized user data keys: {list(user_data.keys())}")
+                logger.info(f"Login: Serialized default_tenant: {user_data.get('default_tenant')}")
+                
+                response.data['user'] = user_data
+                # Tenant info is now included in user.default_tenant object from serializer
+                # Keep tenant field for backwards compatibility
                 if user.default_tenant:
                     response.data['tenant'] = {
                         'id': user.default_tenant.id,
@@ -40,7 +55,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
                 # Log error but don't break the login flow
                 import logging
                 logger = logging.getLogger(__name__)
-                logger.error(f"Error serializing user in login: {str(e)}")
+                logger.error(f"Error serializing user in login: {str(e)}", exc_info=True)
         return response
 
 

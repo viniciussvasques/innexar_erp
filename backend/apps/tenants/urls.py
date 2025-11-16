@@ -8,10 +8,16 @@ from .views import (
 router = DefaultRouter()
 router.register(r'tenants', TenantViewSet)
 router.register(r'domains', DomainViewSet)
-router.register(r'settings', TenantSettingsViewSet, basename='settings')
 router.register(r'onboarding', OnboardingViewSet, basename='onboarding')
 router.register(r'i18n', I18nTestViewSet, basename='i18n')
 
 urlpatterns = [
     path('', include(router.urls)),
+    # Settings endpoint - manual route to handle PATCH without ID
+    path('settings/', TenantSettingsViewSet.as_view({
+        'get': 'list',
+        'patch': 'list',
+        'put': 'list',
+        'post': 'create',
+    }), name='settings-detail'),
 ]

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import { Bell, Check, CheckCheck, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -13,12 +13,41 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Badge } from '@/components/ui/badge'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useAuthStore } from '@/lib/store/authStore'
 import { hrApi } from '@/lib/api/hr'
 import { HRNotification } from '@/types/api'
 import { format } from 'date-fns'
 import { useRouter } from '@/lib/i18n/navigation'
 import { useToast } from '@/lib/hooks/use-toast'
 import { cn } from '@/lib/utils'
+
+function useTenantSchemaReady() {
+  const isAuthenticated = useAuthStore(s => s.isAuthenticated)
+  const [ready, setReady] = useState(false)
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setReady(false)
+      return
+    }
+    const schema = globalThis.window?.localStorage.getItem('tenant_schema')
+    if (schema) {
+      setReady(true)
+      return
+    }
+    let attempts = 0
+    const id = setInterval(() => {
+      const s = globalThis.window?.localStorage.getItem('tenant_schema')
+      if (s) {
+        setReady(true)
+        clearInterval(id)
+      } else if (++attempts > 10) {
+        clearInterval(id)
+      }
+    }, 300)
+    return () => clearInterval(id)
+  }, [isAuthenticated])
+  return ready
+}
 
 export function NotificationsDropdown() {
   const t = useTranslations('hr')
@@ -27,12 +56,14 @@ export function NotificationsDropdown() {
   const { toast } = useToast()
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
+  const tenantReady = useTenantSchemaReady()
 
   // Buscar notificações não lidas
-  const { data: unreadNotifications } = useQuery({
+  useQuery({
     queryKey: ['hr', 'notifications', 'unread'],
     queryFn: () => hrApi.getNotifications({ is_read: false, page_size: 10 }),
-    refetchInterval: 30000, // Atualizar a cada 30 segundos
+    refetchInterval: 30000,
+    enabled: tenantReady,
   })
 
   // Buscar contagem de não lidas
@@ -40,13 +71,14 @@ export function NotificationsDropdown() {
     queryKey: ['hr', 'notifications', 'unread-count'],
     queryFn: () => hrApi.getUnreadNotificationsCount(),
     refetchInterval: 30000,
+    enabled: tenantReady,
   })
 
   // Buscar todas as notificações recentes
   const { data: allNotifications } = useQuery({
     queryKey: ['hr', 'notifications', 'all'],
     queryFn: () => hrApi.getNotifications({ page_size: 20 }),
-    enabled: open, // Só buscar quando o dropdown estiver aberto
+    enabled: open && tenantReady,
   })
 
   const markAsReadMutation = useMutation({
@@ -109,9 +141,19 @@ export function NotificationsDropdown() {
     }
   }
 
-  const unreadCountNumber = unreadCount?.count || 0
+  const unreadCountNumber = tenantReady ? (unreadCount?.count || 0) : 0
   const notifications = allNotifications?.results || []
   const hasUnread = unreadCountNumber > 0
+
+  // Estado de carregamento inicial enquanto tenant schema não disponível
+  if (!tenantReady) {
+    return (
+      <Button variant="ghost" size="icon" className="relative h-9 w-9" disabled>
+        <Bell className="h-5 w-5 opacity-50" />
+        <span className="sr-only">{t('notifications') || 'Notifications'}</span>
+      </Button>
+    )
+  }
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -155,13 +197,20 @@ export function NotificationsDropdown() {
           {notifications.length > 0 ? (
             <div className="space-y-1 p-1">
               {notifications.map(notification => (
-                <div
+                <button
+                  type="button"
                   key={notification.id}
                   className={cn(
-                    'relative rounded-lg p-3 cursor-pointer transition-colors hover:bg-slate-100 dark:hover:bg-slate-800',
+                    'relative text-left w-full rounded-lg p-3 cursor-pointer transition-colors hover:bg-slate-100 dark:hover:bg-slate-800',
                     !notification.is_read && 'bg-blue-50/50 dark:bg-blue-900/10'
                   )}
                   onClick={() => handleNotificationClick(notification)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      handleNotificationClick(notification)
+                    }
+                  }}
                 >
                   <div className="flex items-start gap-3">
                     <div className="flex-shrink-0 mt-0.5 text-lg">
@@ -217,7 +266,7 @@ export function NotificationsDropdown() {
                       </Button>
                     )}
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           ) : (

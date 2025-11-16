@@ -81,7 +81,17 @@ export const tenantsApi = {
     return response.data
   },
 
+  getTenantSettings: async (): Promise<TenantSettings> => {
+    const response = await apiClient.get<TenantSettings>('/api/v1/tenants/settings/')
+    return response.data
+  },
+
   updateSettings: async (data: Partial<TenantSettings>): Promise<TenantSettings> => {
+    const response = await apiClient.patch<TenantSettings>('/api/v1/tenants/settings/', data)
+    return response.data
+  },
+
+  updateTenantSettings: async (data: Partial<TenantSettings>): Promise<TenantSettings> => {
     const response = await apiClient.patch<TenantSettings>('/api/v1/tenants/settings/', data)
     return response.data
   },

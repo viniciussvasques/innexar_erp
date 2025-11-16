@@ -1,6 +1,9 @@
 import axios from 'axios';
 import { LoginRequest, LoginResponse } from '@/types';
 
+type TenantPayload = Record<string, unknown>;
+type UserPayload = Record<string, unknown>;
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || 'v1';
 
@@ -11,12 +14,45 @@ export const api = axios.create({
   },
 });
 
-// Add auth token to requests
+// Add auth token and tenant schema to requests
 api.interceptors.request.use((config) => {
   if (globalThis.window !== undefined) {
     const token = localStorage.getItem('access_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    
+    // Add tenant schema header for django-tenants
+    // Get tenant schema from localStorage first, then try user data
+    let tenantSchema = localStorage.getItem('tenant_schema');
+    
+    // If no tenant schema in localStorage, try to get from user data
+    if (!tenantSchema) {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        try {
+          const user = JSON.parse(userStr);
+          const schema = user.default_tenant?.schema_name || user.tenant?.schema_name;
+          if (schema) {
+            tenantSchema = schema;
+            localStorage.setItem('tenant_schema', schema);
+          }
+        } catch (e) {
+          console.warn('Failed to parse user data:', e);
+        }
+      }
+    }
+    
+    // Add tenant schema header for non-public endpoints
+    if (tenantSchema && !config.url?.includes('/public/')) {
+      config.headers['X-DTS-SCHEMA'] = tenantSchema;
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[apiClient] Adding X-DTS-SCHEMA: ${tenantSchema} for ${config.url}`);
+      }
+    } else if (!config.url?.includes('/public/')) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(`[apiClient] No tenant_schema found for ${config.url}`);
+      }
     }
   }
   return config;
@@ -49,6 +85,13 @@ api.interceptors.response.use(
         }
 
         originalRequest.headers.Authorization = `Bearer ${access}`;
+        
+        // Ensure tenant schema header is added to retry request
+        const tenantSchema = localStorage.getItem('tenant_schema');
+        if (tenantSchema && !originalRequest.url?.includes('/public/')) {
+          originalRequest.headers['X-DTS-SCHEMA'] = tenantSchema;
+        }
+        
         return api(originalRequest);
       } catch (refreshError) {
         // Refresh failed, logout user
@@ -82,6 +125,7 @@ export const authApi = {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');
+    localStorage.removeItem('tenant_schema');
   },
 
   me: async () => {
@@ -109,12 +153,12 @@ export const adminApi = {
     return response.data;
   },
 
-  createTenant: async (data: any) => {
+  createTenant: async (data: TenantPayload) => {
     const response = await api.post('/admin/tenants/', data);
     return response.data;
   },
 
-  updateTenant: async (id: number, data: any) => {
+  updateTenant: async (id: number, data: TenantPayload) => {
     const response = await api.patch(`/admin/tenants/${id}/`, data);
     return response.data;
   },
@@ -134,7 +178,7 @@ export const adminApi = {
     return response.data;
   },
 
-  updateUser: async (id: number, data: any) => {
+  updateUser: async (id: number, data: UserPayload) => {
     const response = await api.patch(`/admin/users/${id}/`, data);
     return response.data;
   },

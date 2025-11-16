@@ -13,9 +13,8 @@ const ModalPortal = DialogPrimitive.Portal;
 
 const ModalClose = DialogPrimitive.Close;
 
-// Using explicit DOM element types instead of deprecated React.ElementRef
 const ModalOverlay = React.forwardRef<
-  HTMLDivElement,
+  React.ElementRef<typeof DialogPrimitive.Overlay>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Overlay
@@ -30,7 +29,7 @@ const ModalOverlay = React.forwardRef<
 ModalOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
 const ModalContent = React.forwardRef<
-  HTMLDivElement,
+  React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
     size?: 'sm' | 'md' | 'lg' | 'xl';
   }
@@ -90,7 +89,7 @@ const ModalFooter = ({
 ModalFooter.displayName = 'ModalFooter';
 
 const ModalTitle = React.forwardRef<
-  HTMLHeadingElement,
+  React.ElementRef<typeof DialogPrimitive.Title>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
@@ -102,7 +101,7 @@ const ModalTitle = React.forwardRef<
 ModalTitle.displayName = DialogPrimitive.Title.displayName;
 
 const ModalDescription = React.forwardRef<
-  HTMLParagraphElement,
+  React.ElementRef<typeof DialogPrimitive.Description>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Description
@@ -122,7 +121,7 @@ const ModalBody = ({
 ModalBody.displayName = 'ModalBody';
 
 const ModalCloseButton = React.forwardRef<
-  HTMLButtonElement,
+  React.ElementRef<typeof DialogPrimitive.Close>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Close>
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Close

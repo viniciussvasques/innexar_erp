@@ -4,6 +4,12 @@ Public Schema URL Configuration (Landing Page, Tenant Registration)
 from django.contrib import admin
 from django.urls import path, include
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+from rest_framework.routers import DefaultRouter
+from apps.tenants.views import OnboardingViewSet
+
+# Create a router for public onboarding endpoints (countries endpoint is public)
+public_onboarding_router = DefaultRouter()
+public_onboarding_router.register(r'onboarding', OnboardingViewSet, basename='public-onboarding')
 
 urlpatterns = [
     # Django Admin
@@ -12,6 +18,9 @@ urlpatterns = [
     # Public API (tenant registration, etc)
     path('api/v1/public/', include('apps.tenants.urls')),
     path('api/v1/public/auth/', include('apps.users.urls')),  # Public login
+    
+    # Public onboarding endpoints (accessible without tenant)
+    path('api/v1/tenants/', include(public_onboarding_router.urls)),
     
     # Admin Panel API
     path('api/v1/admin/', include('apps.admin_api.urls')),  # Admin endpoints

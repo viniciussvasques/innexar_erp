@@ -43,7 +43,15 @@ export default function HomePage() {
 
     try {
       const response = await authApi.login(data)
-      setAuth(response.user, response.access, response.refresh)
+      // Debug: Log the full response to see what we're getting
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Login] Full response:', response)
+        console.log('[Login] User object:', response.user)
+        console.log('[Login] default_tenant:', response.user?.default_tenant)
+        console.log('[Login] tenant (from response):', response.tenant)
+      }
+      // Pass tenant from response as fallback
+      setAuth(response.user, response.access, response.refresh, response.tenant)
       router.push('/dashboard')
     } catch (err: any) {
       // Tratamento de erros mais detalhado

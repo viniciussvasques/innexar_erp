@@ -13,6 +13,7 @@ export interface User {
   is_staff: boolean;
   is_superuser: boolean;
   default_tenant?: Tenant;
+  tenant?: Tenant;
   date_joined: string;
   last_login?: string;
 }

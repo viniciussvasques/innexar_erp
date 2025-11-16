@@ -71,11 +71,15 @@ export default function LoginPage() {
         return;
       }
 
-      setAuth(response.user, response.access, response.refresh);
+      setAuth(response.user, response.access, response.refresh, response.tenant);
       toast.success(`${t.title} - ${response.user.email}`);
       router.push('/dashboard');
-    } catch (err: any) {
-      setError(err.response?.data?.detail || t.error);
+    } catch (err: unknown) {
+      const detail =
+        typeof err === 'object' && err !== null && 'response' in err
+          ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+          : undefined;
+      setError(detail || t.error);
       setLoading(false);
     }
   };
@@ -83,7 +87,7 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen">
       {/* Left Side - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-brand-700 via-brand-800 to-brand-900 p-12 flex-col justify-between relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-1/2 bg-linear-to-br from-brand-600 via-brand-700 to-brand-900 p-12 flex-col justify-between relative overflow-hidden">
         {/* Background Pattern */}
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-0 -left-4 w-96 h-96 bg-white rounded-full mix-blend-overlay filter blur-3xl" />
@@ -92,7 +96,7 @@ export default function LoginPage() {
         
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-8">
-            <div className="h-12 w-12 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center ring-2 ring-white/20 shadow-lg shadow-black/20">
+            <div className="h-12 w-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
               <span className="text-2xl font-bold text-white">I</span>
             </div>
             <div>
@@ -111,7 +115,7 @@ export default function LoginPage() {
           </p>
           <div className="grid grid-cols-2 gap-4 pt-4">
             <div className="flex items-start gap-3">
-              <div className="h-10 w-10 rounded-lg bg-white/10 backdrop-blur-sm flex items-center justify-center shrink-0 ring-1 ring-white/20">
+              <div className="h-10 w-10 rounded-lg bg-white/10 backdrop-blur-sm flex items-center justify-center shrink-0">
                 <Building2 className="h-5 w-5 text-white" />
               </div>
               <div>
@@ -120,7 +124,7 @@ export default function LoginPage() {
               </div>
             </div>
             <div className="flex items-start gap-3">
-              <div className="h-10 w-10 rounded-lg bg-white/10 backdrop-blur-sm flex items-center justify-center shrink-0 ring-1 ring-white/20">
+              <div className="h-10 w-10 rounded-lg bg-white/10 backdrop-blur-sm flex items-center justify-center shrink-0">
                 <BarChart3 className="h-5 w-5 text-white" />
               </div>
               <div>

@@ -83,10 +83,10 @@ INSTALLED_APPS = list(SHARED_APPS) + [
 MIDDLEWARE = [
     'apps.tenants.middleware.CustomTenantMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.locale.LocaleMiddleware',  # i18n
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -213,37 +213,26 @@ SIMPLE_JWT = {
 }
 
 # CORS
-CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[
-    # Development
+CORS_ALLOW_ALL_ORIGINS = True  # Development only - set to False in production
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
-    'http://localhost:3001',  # Admin Panel
+    'http://localhost:3001',
     'http://127.0.0.1:3000',
     'http://127.0.0.1:3001',
-    # Production
-    'https://innexar.app',
-    'https://admin.innexar.app',
-    'https://api.innexar.app',
-])
-
-# CORS: Allow all tenant subdomains in production
-CORS_ALLOWED_ORIGIN_REGEXES = [
-    r'^https://.*\.innexar\.app$',  # *.innexar.app
 ]
-
-CORS_ALLOW_CREDENTIALS = True
-
-# CORS: Allow custom headers for tenant identification
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r'^https://.*\.innexar\.app$',
+]
 CORS_ALLOW_HEADERS = [
     'accept',
     'accept-encoding',
+    'accept-language',
     'authorization',
     'content-type',
-    'dnt',
-    'origin',
-    'user-agent',
     'x-csrftoken',
     'x-requested-with',
-    'x-dts-schema',  # Custom header for tenant schema identification
+    'x-dts-schema',
 ]
 
 # Celery

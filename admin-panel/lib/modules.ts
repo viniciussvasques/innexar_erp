@@ -1,18 +1,21 @@
 import { Module } from '@/types';
-import { 
-  LayoutDashboard, 
-  Building2, 
-  Users, 
-  FileText, 
-  CreditCard, 
-  Package, 
+import {
+  LayoutDashboard,
+  Building2,
+  Users,
+  FileText,
+  CreditCard,
+  Package,
   BarChart3,
   Settings,
   UserCircle,
   Mail,
   Calendar,
-  ShoppingCart
+  ShoppingCart,
+  type LucideIcon,
 } from 'lucide-react';
+
+type Plan = Module['plans'][number];
 
 // Define all available modules with their plans
 export const AVAILABLE_MODULES: Module[] = [
@@ -99,21 +102,19 @@ export const AVAILABLE_MODULES: Module[] = [
 ];
 
 // Get modules available for a specific plan
-export function getModulesForPlan(plan: string): Module[] {
-  return AVAILABLE_MODULES.filter(module => 
-    module.plans.includes(plan as any) && module.enabled
-  );
+export function getModulesForPlan(plan: Plan): Module[] {
+  return AVAILABLE_MODULES.filter((item) => item.plans.includes(plan) && item.enabled);
 }
 
 // Check if module is available for plan
-export function isModuleAvailable(moduleId: string, plan: string): boolean {
-  const module = AVAILABLE_MODULES.find(m => m.id === moduleId);
-  return module ? module.plans.includes(plan as any) && module.enabled : false;
+export function isModuleAvailable(moduleId: string, plan: Plan): boolean {
+  const foundModule = AVAILABLE_MODULES.find((m) => m.id === moduleId);
+  return foundModule ? foundModule.plans.includes(plan) && foundModule.enabled : false;
 }
 
 // Get icon component by name
-export function getIconComponent(iconName: string) {
-  const icons: Record<string, any> = {
+export function getIconComponent(iconName: string): LucideIcon {
+  const icons: Record<string, LucideIcon> = {
     LayoutDashboard,
     Building2,
     Users,

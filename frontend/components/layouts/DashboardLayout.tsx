@@ -3,37 +3,38 @@
 import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
-import { useRouter, usePathname } from '@/lib/i18n/navigation'
+// Removed unused navigation imports after refactor
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard'
 import { tenantsApi } from '@/lib/api/tenants'
+import { useTenantSchemaReady } from '@/lib/hooks/useTenantSchemaReady'
 
-export function DashboardLayout({ children }: { children: React.ReactNode }) {
+export function DashboardLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('sidebar-collapsed')
-      return saved === 'true'
-    }
-    return false
+    const saved = globalThis.window?.localStorage.getItem('sidebar-collapsed')
+    return saved === 'true'
   })
   const [showOnboarding, setShowOnboarding] = useState(false)
-  const router = useRouter()
-  const pathname = usePathname()
+  // const router = useRouter() // not needed after refactor
+  // const pathname = usePathname() // not needed after refactor
   const currentLocale = useLocale()
 
   useEffect(() => {
-    localStorage.setItem('sidebar-collapsed', String(sidebarCollapsed))
+    globalThis.window?.localStorage.setItem('sidebar-collapsed', String(sidebarCollapsed))
   }, [sidebarCollapsed])
 
-  // Check onboarding status
+  const tenantReady = useTenantSchemaReady()
+
+  // Check onboarding status (somente após schema resolvido)
   const { data: onboardingStatus } = useQuery({
     queryKey: ['onboarding', 'status'],
     queryFn: () => tenantsApi.getOnboardingStatus(),
     retry: false,
     refetchOnWindowFocus: false,
+    enabled: tenantReady,
   })
 
   // Fetch tenant settings to check language preference
@@ -42,66 +43,48 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     queryFn: () => tenantsApi.getTenantSettings(),
     retry: false,
     refetchOnWindowFocus: false,
-    enabled: !onboardingStatus?.needs_onboarding, // Only fetch if onboarding is completed
+    enabled: tenantReady && !onboardingStatus?.needs_onboarding, // Only fetch if onboarding is completed and schema pronto
   })
 
   useEffect(() => {
-    if (onboardingStatus?.needs_onboarding) {
+    if (tenantReady && onboardingStatus?.needs_onboarding) {
       setShowOnboarding(true)
     }
-  }, [onboardingStatus])
+  }, [onboardingStatus, tenantReady])
 
   // Redirect to correct locale if tenant settings language differs from current locale
   useEffect(() => {
-    if (tenantSettings?.language && !onboardingStatus?.needs_onboarding) {
-      const settingsLanguage = tenantSettings.language
-      
-      // Only redirect if the language is different and not already redirecting
-      if (settingsLanguage !== currentLocale) {
-        console.log('Locale mismatch detected:', {
-          settingsLanguage,
-          currentLocale,
-          pathname: window.location.pathname
-        })
-        
-        // Update localStorage
-        localStorage.setItem('locale', settingsLanguage)
-        
-        // Get current path without locale
-        const currentPath = window.location.pathname
-        // Remove current locale from path (e.g., /en/dashboard -> /dashboard)
-        // Handle both /en/dashboard and /en/dashboard/ cases
-        let pathWithoutLocale = currentPath
-        for (const locale of ['en', 'pt', 'es']) {
-          if (currentPath.startsWith(`/${locale}/`)) {
-            pathWithoutLocale = currentPath.replace(`/${locale}/`, '/')
-            break
-          } else if (currentPath === `/${locale}`) {
-            pathWithoutLocale = '/dashboard'
-            break
-          }
-        }
-        
-        // Ensure path starts with /
-        if (!pathWithoutLocale.startsWith('/')) {
-          pathWithoutLocale = `/${pathWithoutLocale}`
-        }
-        
-        // Build new path with correct locale
-        const newPath = `/${settingsLanguage}${pathWithoutLocale}`
-        
-        console.log('Redirecting to:', newPath)
-        
-        // Only redirect if we're not already on the correct path
-        if (currentPath !== newPath) {
-          window.location.href = newPath
-        }
+    if (!tenantReady || !tenantSettings?.language || onboardingStatus?.needs_onboarding) return
+    const settingsLanguage = tenantSettings.language
+    if (settingsLanguage === currentLocale) return
+    const currentPath = globalThis.window?.location.pathname || '/'
+    const stripLocale = (p: string) => {
+      for (const locale of ['en', 'pt', 'es']) {
+        if (p.startsWith(`/${locale}/`)) return p.replace(`/${locale}/`, '/')
+        if (p === `/${locale}`) return '/dashboard'
       }
+      return p
     }
-  }, [tenantSettings?.language, currentLocale, onboardingStatus?.needs_onboarding])
+    let pathWithoutLocale = stripLocale(currentPath)
+    if (!pathWithoutLocale.startsWith('/')) pathWithoutLocale = '/' + pathWithoutLocale
+    const newPath = `/${settingsLanguage}${pathWithoutLocale}`
+    if (currentPath !== newPath) {
+      globalThis.window.location.href = newPath
+    }
+  }, [tenantReady, tenantSettings?.language, currentLocale, onboardingStatus?.needs_onboarding])
 
   const handleOnboardingComplete = () => {
     setShowOnboarding(false)
+  }
+
+  if (!tenantReady) {
+    return (
+      <ProtectedRoute>
+        <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">
+          Carregando tenant...
+        </div>
+      </ProtectedRoute>
+    )
   }
 
   return (

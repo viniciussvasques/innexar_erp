@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.utils.translation import gettext_lazy as _
 from .models import User, Role, Module, Permission
+from apps.tenants.serializers import TenantSerializer
 
 
 class RoleSerializer(serializers.ModelSerializer):
@@ -40,6 +41,8 @@ class UserSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
     default_tenant_name = serializers.CharField(source='default_tenant.name', read_only=True)
     default_tenant_schema = serializers.CharField(source='default_tenant.schema_name', read_only=True)
+    # Add default_tenant as nested object for read operations
+    default_tenant = TenantSerializer(read_only=True)
     
     class Meta:
         model = User

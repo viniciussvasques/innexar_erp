@@ -161,14 +161,11 @@ export function DataTable<T extends Record<string, unknown>>({
               filteredData.map((row, rowIndex) => {
                 // Safe key generation with proper type checking
                 const generateRowKey = (id: unknown, index: number): string => {
-                  switch (typeof id) {
-                    case 'string':
-                    case 'number':
-                    case 'boolean':
-                      return `row-${id}`;
-                    default:
-                      return `row-${index}`; // null, undefined, object, function, symbol
+                  if (id == null) return `row-${index}`;
+                  if (typeof id === 'string' || typeof id === 'number' || typeof id === 'boolean') {
+                    return `row-${id}`;
                   }
+                  return `row-${index}`;
                 };
                 
                 const rowId = generateRowKey(row.id, rowIndex);

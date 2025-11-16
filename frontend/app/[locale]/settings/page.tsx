@@ -4,6 +4,7 @@ import { DashboardLayout } from '@/components/layouts/DashboardLayout'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CompanySettingsForm } from '@/components/settings/CompanySettingsForm'
+import { PreferencesForm } from '@/components/settings/PreferencesForm'
 import { QuickBooksSetup } from '@/components/integrations/QuickBooksSetup'
 import { Building2, User, Bell, Shield, Plug } from 'lucide-react'
 import { useAuthStore } from '@/lib/store/authStore'
@@ -96,15 +97,7 @@ export default function SettingsPage() {
           </TabsContent>
 
           <TabsContent value="preferences" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('preferences')}</CardTitle>
-                <CardDescription>{t('preferencesDescription')}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">{t('comingSoon')}</p>
-              </CardContent>
-            </Card>
+            <PreferencesForm />
           </TabsContent>
 
           <TabsContent value="integrations" className="space-y-4">

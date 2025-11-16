@@ -7,7 +7,7 @@ interface AuthState {
   accessToken: string | null
   refreshToken: string | null
   isAuthenticated: boolean
-  setAuth: (user: User, accessToken: string, refreshToken: string) => void
+  setAuth: (user: User, accessToken: string, refreshToken: string, tenantFromResponse?: any) => void
   clearAuth: () => void
   updateUser: (user: Partial<User>) => void
 }
@@ -19,14 +19,32 @@ export const useAuthStore = create<AuthState>()(
       accessToken: null,
       refreshToken: null,
       isAuthenticated: false,
-      setAuth: (user, accessToken, refreshToken) => {
+      setAuth: (user, accessToken, refreshToken, tenantFromResponse?: any) => {
         localStorage.setItem('access_token', accessToken)
         localStorage.setItem('refresh_token', refreshToken)
         localStorage.setItem('user', JSON.stringify(user))
         
         // Store tenant schema if available
-        if (user.default_tenant?.schema_name) {
-          localStorage.setItem('tenant_schema', user.default_tenant.schema_name)
+        // Try in order: default_tenant.schema_name, tenant.schema_name, tenantFromResponse.schema_name
+        const schema = user.default_tenant?.schema_name || 
+                      user.tenant?.schema_name || 
+                      tenantFromResponse?.schema_name
+        
+        if (schema) {
+          localStorage.setItem('tenant_schema', schema)
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[authStore] Saved tenant_schema:', schema, 'from:', {
+              default_tenant: user.default_tenant?.schema_name,
+              tenant: user.tenant?.schema_name,
+              tenantFromResponse: tenantFromResponse?.schema_name
+            })
+          }
+        } else {
+          // If no schema found, remove it to avoid stale data
+          localStorage.removeItem('tenant_schema')
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('[authStore] No tenant_schema found. User:', user, 'tenantFromResponse:', tenantFromResponse)
+          }
         }
         
         set({
